@@ -71,7 +71,7 @@ function App() {
         <ScheduleTable
           day={selectedDay}
           schedule={schedule}
-          dispatchers={dispatchers.map((d) => d.id)}
+          dispatchers={dispatchers.map((d) => d.name || d.id)}
           onChange={handleChange}
         />
       )}

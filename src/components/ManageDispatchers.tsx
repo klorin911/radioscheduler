@@ -25,27 +25,28 @@ const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 
 const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
   const [expandedCard, setExpandedCard] = useState<number | null>(null);
-  const [newId, setNewId] = useState('');
   const [newName, setNewName] = useState('');
+  const [newBadge, setNewBadge] = useState('');
 
   const addDispatcher = () => {
-    if (!newId.trim()) return;
-    const exists = dispatchers.find((d) => d.id === newId.trim());
+    if (!newName.trim()) return;
+    const id = newBadge.trim() || newName.trim().toLowerCase().replace(/\s+/g, '_');
+    const exists = dispatchers.find((d) => d.id === id);
     if (exists) return;
     onChange([
       ...dispatchers,
       {
-        id: newId.trim(),
-        name: newName.trim() || newId.trim(),
-        badgeNumber: '',
+        id,
+        name: newName.trim(),
+        badgeNumber: newBadge.trim(),
         preferredChannels: [],
         preferredTimeBlocks: [],
         workDays: [],
         shift: 'A',
       },
     ]);
-    setNewId('');
     setNewName('');
+    setNewBadge('');
   };
 
   const update = <K extends keyof ExtendedDispatcher>(index: number, field: K, value: ExtendedDispatcher[K]) => {
@@ -112,9 +113,8 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
         <h2 className="manage-dispatchers-title">Manage Dispatchers</h2>
         <button
           onClick={() => {
-            // Clear form
-            setNewId('');
             setNewName('');
+            setNewBadge('');
             // Collapse all cards
             setExpandedCard(null);
           }}
@@ -127,20 +127,20 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
       {/* Add Dispatcher Form */}
       <div className="add-dispatcher-form">
         <input
-          placeholder="ID (required)"
-          value={newId}
-          onChange={(e) => setNewId(e.target.value)}
-          className="add-dispatcher-input"
-        />
-        <input
-          placeholder="Name (optional)"
+          placeholder="Name (required)"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           className="add-dispatcher-input"
         />
+        <input
+          placeholder="Badge # (optional)"
+          value={newBadge}
+          onChange={(e) => setNewBadge(e.target.value)}
+          className="add-dispatcher-input"
+        />
         <button
           onClick={addDispatcher}
-          disabled={!newId.trim()}
+          disabled={!newName.trim()}
           className="add-dispatcher-btn"
         >
           Add Dispatcher
@@ -159,18 +159,11 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
               <div className="dispatcher-card-header-content">
                 <div>
                   <input
-                    value={d.id}
-                    onChange={(e) => update(i, 'id', e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="dispatcher-id-input"
-                  />
-                </div>
-                <div>
-                  <input
                     value={d.name}
                     onChange={(e) => update(i, 'name', e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                     className="dispatcher-name-input"
+                    placeholder="Name"
                   />
                 </div>
                 <input
