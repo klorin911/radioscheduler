@@ -110,6 +110,13 @@ export async function generateScheduleForDay(
     });
   });
 
+  // Enforce every slot/column to be filled if at least one variable exists
+  subjectTo.forEach((c) => {
+    if (c.name.startsWith('fill_')) {
+      c.bnds = { type: glpk.GLP_FX, lb: 1, ub: 1 };
+    }
+  });
+
   const lp = {
     name: 'dispatch_schedule',
     objective: {
