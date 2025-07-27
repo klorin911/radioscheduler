@@ -1,0 +1,22 @@
+.schedule-table-wrapper {
+  margin-top: 1rem;
+}
+
+.schedule-table {
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+
+.schedule-table th,
+.schedule-table td {
+  border: 1px solid #666;
+  padding: 6px 10px;
+}
+
+.schedule-table select {
+  width: 90px;
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #444;
+}

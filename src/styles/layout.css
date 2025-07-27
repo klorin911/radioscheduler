@@ -1,0 +1,11 @@
+/* Shared layout tweaks */
+
+.day-tabs {
+  margin-top: 1rem;
+  min-height: 40px; /* keep consistent header spacing even when hidden */
+}
+
+.day-tabs button {
+  margin: 0 4px;
+  padding: 4px 8px;
+}

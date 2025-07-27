@@ -1,0 +1,353 @@
+.manage-dispatchers-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.manage-dispatchers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #444;
+}
+
+.manage-dispatchers-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.add-dispatcher-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+}
+
+.add-dispatcher-input {
+  padding: 10px 15px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background-color: #333;
+  color: #fff;
+  font-size: 14px;
+}
+
+.add-dispatcher-input:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.add-dispatcher-btn {
+  padding: 10px 20px;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.add-dispatcher-btn:hover {
+  background-color: #535bf2;
+}
+
+.add-dispatcher-btn:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.dispatchers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.dispatcher-card {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.2s;
+}
+
+.dispatcher-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.dispatcher-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  cursor: pointer;
+}
+
+.dispatcher-card-header-content {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.dispatcher-id-input {
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  background-color: transparent;
+  color: #fff;
+  width: 100px;
+}
+
+.dispatcher-name-input {
+  font-size: 16px;
+  border: none;
+  background-color: transparent;
+  color: #ccc;
+  width: 200px;
+}
+
+.dispatcher-badge-input {
+  padding: 5px 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #333;
+  color: #fff;
+  width: 100px;
+}
+
+.dispatcher-shift-select {
+  padding: 5px 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #333;
+  color: #fff;
+}
+
+.delete-btn {
+  padding: 8px 15px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+  background-color: #bd2130;
+}
+
+.expand-icon {
+  font-size: 14px;
+  color: #ccc;
+}
+
+.dispatcher-card-expanded-content {
+  padding: 20px;
+  border-top: 1px solid #444;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.work-days-container {
+  margin-bottom: 25px;
+}
+
+.work-days-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.work-day-btn {
+  padding: 8px 16px;
+  border: 2px solid #444;
+  background-color: #333;
+  color: #ccc;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.work-day-btn.selected {
+  border-color: #646cff;
+  background-color: #646cff;
+  color: white;
+}
+
+.channels-container {
+  margin-bottom: 25px;
+}
+
+.section-subtitle {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.channels-content {
+  display: flex;
+  gap: 15px;
+}
+
+.channels-column {
+  flex: 1;
+}
+
+.available-channels {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.add-channel-btn {
+  padding: 6px 12px;
+  border: 2px solid #444;
+  background-color: #333;
+  color: #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.add-channel-btn:hover {
+  border-color: #646cff;
+  color: #646cff;
+}
+
+.ranked-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ranked-channel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: #333;
+  border-radius: 6px;
+}
+
+.channel-rank {
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  min-width: 20px;
+}
+
+.channel-name {
+  flex: 1;
+  font-size: 14px;
+  color: #fff;
+}
+
+.channel-action-btn {
+  padding: 2px 6px;
+  font-size: 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.move-up-btn {
+  background-color: #444;
+  color: #ccc;
+}
+
+.move-down-btn {
+  background-color: #444;
+  color: #ccc;
+}
+
+.remove-channel-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.time-blocks-container {
+  margin-bottom: 10px;
+}
+
+.time-blocks-content {
+  display: flex;
+  gap: 15px;
+}
+
+.available-time-blocks {
+  flex: 2;
+}
+
+.available-time-blocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 5px;
+}
+
+.add-time-block-btn {
+  padding: 8px 10px;
+  border: 2px solid #444;
+  background-color: #333;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: center;
+  color: #ccc;
+  transition: all 0.2s;
+}
+
+.add-time-block-btn:hover {
+  border-color: #646cff;
+  color: #646cff;
+}
+
+.selected-time-blocks {
+  flex: 1;
+}
+
+.selected-time-blocks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.selected-time-block-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background-color: #333;
+  border-radius: 6px;
+}
+
+.time-block-text {
+  font-size: 12px;
+  color: #fff;
+}
+
+.remove-time-block-btn {
+  padding: 2px 6px;
+  font-size: 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
