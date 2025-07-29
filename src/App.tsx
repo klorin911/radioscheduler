@@ -3,16 +3,19 @@ import './styles/App.css';
 import './styles/layout.css';
 import './styles/manage-dispatchers.css';
 import { days, Day, Schedule } from './constants';
-import { Dispatcher } from './types';
+
+import { ExtendedDispatcher } from './solver/glpkScheduler';
 import ManageDispatchers from './components/ManageDispatchers';
 import ScheduleTable from './components/ScheduleTable';
-import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers } from './scheduleUtils';
+import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './scheduleUtils';
+import { generateWeeklySchedule } from './solver/weekScheduler';
 
 function App() {
   const [schedule, setSchedule] = useState<Schedule>(() => loadSchedule());
   const [selectedDay, setSelectedDay] = useState<Day>('Monday');
-  const [dispatchers, setDispatchers] = useState<Dispatcher[]>(() => loadDispatchers());
+  const [dispatchers, setDispatchers] = useState<ExtendedDispatcher[]>(() => loadDispatchers() as ExtendedDispatcher[]);
   const [showDispatchersPage, setShowDispatchersPage] = useState(false);
+  const [solving, setSolving] = useState(false);
 
   // Save schedule 
   useEffect(() => {
@@ -48,6 +51,21 @@ function App() {
       <button onClick={() => setShowDispatchersPage((v) => !v)}>
         {showDispatchersPage ? 'Back to Schedule' : 'Manage Dispatchers'}
       </button>
+      {!showDispatchersPage && (
+        <>
+          <button onClick={() => setSchedule(createEmptySchedule())}>
+            Reset Schedule
+          </button>
+          <button disabled={solving} onClick={async () => {
+            setSolving(true);
+            const newSched = await generateWeeklySchedule(schedule, dispatchers);
+            setSchedule(newSched);
+            setSolving(false);
+          }}>
+            {solving ? 'Generating...' : 'Auto Schedule'}
+          </button>
+        </>
+      )}
 
       <div className="day-tabs">
         {!showDispatchersPage &&
@@ -71,7 +89,7 @@ function App() {
         <ScheduleTable
           day={selectedDay}
           schedule={schedule}
-          dispatchers={dispatchers.map((d) => d.name || d.id)}
+          dispatchers={dispatchers}
           onChange={handleChange}
         />
       )}

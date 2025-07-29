@@ -20,3 +20,24 @@
   color: #fff;
   border: 1px solid #444;
 }
+
+.dispatcher-select-filled {
+  background-color: #2a4a2a !important;
+  border: 1px solid #4a7c59 !important;
+  cursor: help;
+}
+
+.dispatcher-select-filled:hover {
+  background-color: #3a5a3a !important;
+  border-color: #5a8c69 !important;
+}
+
+.dispatcher-select-empty {
+  background-color: #222 !important;
+  border: 1px solid #444 !important;
+}
+
+.dispatcher-tooltip-container {
+  width: 100%;
+  display: block;
+}

@@ -15,13 +15,8 @@ interface Props {
   onChange: (list: ExtendedDispatcher[]) => void;
 }
 
-const channels = ['SW', 'CE', 'SE', 'NE', 'NW', 'MT', 'UT', 'RE'];
-const timeBlocks = [
-  '0330-0530', '0530-0730', '0730-0930', '0930-1130', '1130-1330',
-  '1330-1530', '1530-1730', '1730-1930', '1930-2130', '2130-2330',
-  '2330-0130', '0130-0330'
-];
-const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+import { columns as channels, timeSlots as timeBlocks } from '../constants';
+const weekDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
 const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
   const [expandedCard, setExpandedCard] = useState<number | null>(null);

@@ -1,4 +1,5 @@
-import { ipcRenderer, contextBridge } from 'electron'
+// Using CommonJS require so compiled preload.js is CJS-compatible
+const { ipcRenderer, contextBridge } = require('electron');
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {

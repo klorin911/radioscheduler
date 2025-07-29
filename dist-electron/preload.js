@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+const { ipcRenderer, contextBridge } = require("electron");
 contextBridge.exposeInMainWorld("ipcRenderer", {
   on(...args) {
     const [channel, listener] = args;
