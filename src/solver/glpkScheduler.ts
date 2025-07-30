@@ -1,6 +1,5 @@
-import { days, Day, TimeSlot, Column, timeSlots, columns } from '../constants';
+import { Day, TimeSlot, Column, timeSlots, columns } from '../constants';
 import { Dispatcher } from '../types';
-import GLPKFactory from 'glpk.js';
 
 export type ExtendedDispatcher = Dispatcher & {
   workDays?: string[];
@@ -18,35 +17,11 @@ const shiftSlots: Record<string, TimeSlot[]> = {
   F: ['2130-2330','2330-0130','0130-0330','0330-0530','0530-0730'],
 };
 
-/** Weight helpers */
-function channelWeight(dispatcher: Dispatcher & { preferredChannels?: string[] }, col: Column) {
-  if (!dispatcher.preferredChannels || dispatcher.preferredChannels.length === 0) return 0;
-  const idx = dispatcher.preferredChannels.indexOf(col);
-  if (idx === -1) return 0;
-  // Higher rank (0) should get bigger weight
-  return 10 - idx;
-}
 
-function timeWeight(dispatcher: Dispatcher & { preferredTimeBlocks?: string[] }, slot: TimeSlot) {
-  if (!dispatcher.preferredTimeBlocks || dispatcher.preferredTimeBlocks.length === 0) return 0;
-  const idx = dispatcher.preferredTimeBlocks.indexOf(slot);
-  if (idx === -1) return 0;
-  return 10 - idx;
-}
 
 export type ScheduleDay = Record<TimeSlot, Record<Column, string>>;
 
-type Bounds = { type: number; ub: number; lb: number };
 
-interface Constraint {
-  name: string;
-  vars: { name: string; coef: number }[];
-  bnds: Bounds;
-}
-
-function createBounds(type: number, ub: number, lb: number): Bounds {
-  return { type, ub, lb };
-}
 
 function createEmptyDay(): ScheduleDay {
   const day = {} as Record<TimeSlot, Record<Column, string>>;
@@ -65,200 +40,93 @@ function createEmptyDay(): ScheduleDay {
  * @param day Day of week
  * @param dispatchers list including availability information (workDays, prefs)
  */
+function extractBadgeNumber(id: string): number {
+  const match = id.match(/\d+/);
+  return match ? parseInt(match[0]) : 9999; // default high number for non-standard IDs
+}
+
 export async function generateScheduleForDay(
   day: Day,
   dispatchers: ExtendedDispatcher[],
   locked?: ScheduleDay // existing assignments to keep
 ): Promise<ScheduleDay> {
-  const glpk = await GLPKFactory();
 
-  // Validate dispatcher workDays, preferredTimeBlocks, and preferredChannels
-  const validDays = new Set<string>(days);
-  const validSlots = new Set<string>(timeSlots);
-  const validCols = new Set<string>(columns);
-  dispatchers.forEach((d) => {
-    if (d.workDays) {
-      d.workDays = d.workDays.filter(w => {
-        if (!validDays.has(w)) {
-          console.warn(`[Scheduler] dispatcher ${d.id} invalid workDay: "${w}"`);
-          return false;
-        }
-        return true;
-      });
-    }
-    if (d.preferredTimeBlocks) {
-      d.preferredTimeBlocks = d.preferredTimeBlocks.filter(s => {
-        if (!validSlots.has(s)) {
-          console.warn(`[Scheduler] dispatcher ${d.id} invalid preferredTimeBlock: "${s}"`);
-          return false;
-        }
-        return true;
-      });
-    }
-    if (d.preferredChannels) {
-      d.preferredChannels = d.preferredChannels.filter(c => {
-        if (!validCols.has(c)) {
-          console.warn(`[Scheduler] dispatcher ${d.id} invalid preferredChannel: "${c}"`);
-          return false;
-        }
-        return true;
-      });
-    }
-  });
-
-  type VarKey = `${string}_${TimeSlot}_${Column}`;
-  const variables: VarKey[] = [];
-
-  // Build objective vars
-  const objVars: { name: string; coef: number }[] = [];
-
-  // map var name to dispatcher index for later
-  const varToDispatcher: Record<string, number> = {};
-
-  // Precompute slots already taken per dispatcher
-  const lockedSlotsByDispatcher: Record<string, Set<TimeSlot>> = {};
-  if (locked) {
-    timeSlots.forEach((slot) => {
-      columns.forEach((col) => {
-        const val = locked[slot]?.[col];
-        if (val) {
-          lockedSlotsByDispatcher[val] = lockedSlotsByDispatcher[val] || new Set();
-          lockedSlotsByDispatcher[val].add(slot);
-        }
-      });
-    });
-  }
-
-  dispatchers.forEach((d, di) => {
+  // Start with existing locked assignments
+  const schedule: ScheduleDay = locked ? JSON.parse(JSON.stringify(locked)) : createEmptyDay();
+  
+  // Filter dispatchers available for this day
+  const availableDispatchers = dispatchers.filter(d => {
     if (d.workDays && d.workDays.length && !d.workDays.includes(day)) {
-      console.log(`[GLPK] ${day}: Skipping ${d.id} - not available on ${day}`);
-      return; // not available
+      console.log(`[Sequential] ${day}: Skipping ${d.id} - not available on ${day}`);
+      return false;
     }
-    timeSlots.forEach((slot) => {
-      // skip if outside dispatcher’s shift hours
-      if (d.shift && !shiftSlots[d.shift]?.includes(slot)) {
-        return; // not in shift
+    return true;
+  });
+  
+  // Sort by seniority (lower badge number = higher seniority)
+  const sortedDispatchers = availableDispatchers.sort((a, b) => {
+    const badgeA = extractBadgeNumber(a.id);
+    const badgeB = extractBadgeNumber(b.id);
+    return badgeA - badgeB; // ascending order (lower numbers first)
+  });
+  
+  console.log(`[Sequential] ${day}: Processing ${sortedDispatchers.length} dispatchers by seniority:`);
+  sortedDispatchers.forEach(d => {
+    console.log(`  - ${d.id} (badge: ${extractBadgeNumber(d.id)})`);
+  });
+
+  // Sequential assignment by seniority
+  for (const dispatcher of sortedDispatchers) {
+    console.log(`\n[Sequential] ${day}: Processing ${dispatcher.id}`);
+    
+    // Skip if dispatcher has no preferences (they get nothing)
+    const hasChannelPrefs = dispatcher.preferredChannels && dispatcher.preferredChannels.length > 0;
+    const hasTimePrefs = dispatcher.preferredTimeBlocks && dispatcher.preferredTimeBlocks.length > 0;
+    
+    if (!hasChannelPrefs && !hasTimePrefs) {
+      console.log(`[Sequential] ${day}: ${dispatcher.id} has no preferences, skipping`);
+      continue;
+    }
+    
+    // Generate all preferred slot combinations
+    const preferredAssignments: { slot: TimeSlot; col: Column; priority: number }[] = [];
+    
+    const channelPrefs = hasChannelPrefs ? (dispatcher.preferredChannels! as Column[]) : [...columns];
+    const timePrefs = hasTimePrefs ? (dispatcher.preferredTimeBlocks! as TimeSlot[]) : [...timeSlots];
+    
+    timePrefs.forEach((slot, timeIdx) => {
+      // Check shift restrictions
+      if (dispatcher.shift && !shiftSlots[dispatcher.shift]?.includes(slot)) {
+        return;
       }
-
-      columns.forEach((col) => {
-        if (locked && locked[slot]?.[col]) return; // already filled, skip variable
-        const name: VarKey = `${d.id}_${slot}_${col}` as VarKey;
-        variables.push(name);
-        varToDispatcher[name] = di;
-        const coef = 1 + channelWeight(d, col) + timeWeight(d, slot);
-        objVars.push({ name, coef });
+      
+      channelPrefs.forEach((col, channelIdx) => {
+        // Skip if slot already filled
+        if (schedule[slot][col]) {
+          return;
+        }
+        
+        // Calculate priority (lower = better): time preference rank + channel preference rank
+        const priority = timeIdx + channelIdx;
+        preferredAssignments.push({ slot, col, priority });
       });
     });
-  });
-
-  // Build constraints
-  const subjectTo: Constraint[] = [];
-
-  // 1. Each slot/col filled by at most 1 dispatcher
-  timeSlots.forEach((slot) => {
-    columns.forEach((col) => {
-      const vars = variables.filter((v) => v.includes(`_${slot}_${col}`));
-      if (vars.length === 0) return;
-      subjectTo.push({
-        name: `fill_${slot}_${col}`,
-        vars: vars.map((n) => ({ name: n, coef: 1 })),
-        bnds: createBounds(glpk.GLP_UP, 1, 0),
-      });
-    });
-  });
-
-  // 2. Dispatcher per timeslot at most 1
-  dispatchers.forEach((d) => {
-    timeSlots.forEach((slot) => {
-      if (lockedSlotsByDispatcher[d.name] && lockedSlotsByDispatcher[d.name].has(slot)) return; // already assigned
-      const vars = variables.filter((v) => v.startsWith(`${d.id}_${slot}`));
-      if (vars.length === 0) return;
-      subjectTo.push({
-        name: `onecol_${d.id}_${slot}`,
-        vars: vars.map((n) => ({ name: n, coef: 1 })),
-        bnds: createBounds(glpk.GLP_UP, 1, 0),
-      });
-    });
-  });
-
-  
-
-  // 3. Ensure each dispatcher gets at least one slot per work day (DISABLED - too restrictive)
-  // dispatchers.forEach((d, di) => {
-  //   if (d.workDays && d.workDays.length && d.workDays.includes(day)) {
-  //     const varsForD = variables.filter(v => varToDispatcher[v] === di);
-  //     if (varsForD.length > 0) {
-  //       subjectTo.push({
-  //         name: `min1_${d.id}_${day}`,
-  //         vars: varsForD.map(n => ({ name: n, coef: 1 })),
-  //         bnds: createBounds(glpk.GLP_LO, 0, 1),
-  //       });
-  //     }
-  //   }
-  // });
-  
-
-
-  // Validate constraints
-  subjectTo.forEach((constraint, i) => {
-    if (constraint.vars.length === 0) {
-      console.warn(`[GLPK] ${day}: Constraint ${i} (${constraint.name}) has no variables`);
+    
+    // Sort by priority (best preferences first)
+    preferredAssignments.sort((a, b) => a.priority - b.priority);
+    
+    console.log(`[Sequential] ${day}: ${dispatcher.id} has ${preferredAssignments.length} preferred options`);
+    
+    // Assign the best available preference
+    if (preferredAssignments.length > 0) {
+      const assignment = preferredAssignments[0];
+      schedule[assignment.slot][assignment.col] = dispatcher.name || dispatcher.id;
+      console.log(`[Sequential] ${day}: Assigned ${dispatcher.id} to ${assignment.slot}/${assignment.col} (priority ${assignment.priority})`);
+    } else {
+      console.log(`[Sequential] ${day}: No available preferred slots for ${dispatcher.id}`);
     }
-  });
-  
-  const lp = {
-    name: 'dispatch_schedule',
-    objective: {
-      direction: glpk.GLP_MAX,
-      name: 'obj',
-      vars: objVars,
-    },
-    subjectTo,
-    binaries: variables,
-  } as const;
-
-  if (variables.length === 0) {
-    // nothing to solve
-    return createEmptyDay();
   }
 
-  console.log(`[GLPK] ${day}: variables=${variables.length}, constraints=${subjectTo.length}`);
-  if (variables.length === 0) {
-    console.log(`[GLPK] ${day}: No variables generated - all dispatchers filtered out`);
-  }
-
-  console.log(`[GLPK] ${day}: Calling solver...`);
-  const result = await glpk.solve(lp, { msglev: glpk.GLP_MSG_ERR });
-  console.log(`[GLPK] ${day}: Solver result:`, result);
-
-  // Build schedule structure default empty
-  const schedule: ScheduleDay = createEmptyDay();
-
-  if (!result || !result.result) {
-    console.log(`[GLPK] ${day}: Solver returned no result object:`, result);
-    return schedule;
-  }
-  
-  if (result.result.status !== glpk.GLP_OPT && result.result.status !== glpk.GLP_FEAS) {
-    console.log(`[GLPK] ${day}: Solver failed - status: ${result.result.status} (OPT=${glpk.GLP_OPT}, FEAS=${glpk.GLP_FEAS})`);
-    return schedule; // return empty if infeasible
-  }
-  
-  console.log(`[GLPK] ${day}: Solver succeeded with status: ${result.result.status}`);
-
-  const chosen = result.result.vars as Record<string, number>;
-  console.log(`[GLPK] ${day}: Solution found with ${Object.keys(chosen).filter(k => chosen[k] >= 0.5).length} assignments`);
-  Object.entries(chosen).forEach(([varName, val]) => {
-    if (val < 0.5) return;
-    const parts = varName.split('_');
-    const col = parts.pop() as Column;
-    const slot = parts.pop() as TimeSlot;
-    const did = parts.join('_');
-    if (schedule[slot] && schedule[slot][col] !== undefined) {
-      schedule[slot][col] = dispatchers[varToDispatcher[varName]].name || did;
-    }
-  });
-
-  console.log(`[GLPK] ${day}: Returning schedule`);
+  console.log(`[Sequential] ${day}: Assignment complete`);
   return schedule;
 }
