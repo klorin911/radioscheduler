@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ExtendedDispatcher } from '../solver/glpkScheduler';
+import React, { useState, useRef } from 'react';
+import { ExtendedDispatcher } from '../types';
 import '../styles/tooltip.css';
 
 interface Props {

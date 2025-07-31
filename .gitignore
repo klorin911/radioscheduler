@@ -49,6 +49,9 @@ logs
 ehthumbs.db
 Thumbs.db
 
+# Application data files (sensitive)
+dispatchers.json
+
 # Application specific
 # Add any sensitive config files or local storage here
 # Example: config/local.json

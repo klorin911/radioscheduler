@@ -1,14 +1,10 @@
 import { days, Day, Schedule, timeSlots, columns } from '../constants';
-import { Dispatcher } from '../types';
+import { ExtendedDispatcher } from '../types';
 import { generateScheduleForDay, ScheduleDay } from './glpkScheduler';
 
 export async function generateWeeklySchedule(
   current: Schedule,
-  dispatchers: Array<Dispatcher & {
-    workDays?: string[];
-    preferredChannels?: string[];
-    preferredTimeBlocks?: string[];
-  }>
+  dispatchers: ExtendedDispatcher[]
 ): Promise<Schedule> {
   const newSchedule: Schedule = JSON.parse(JSON.stringify(current));
   for (const day of days) {

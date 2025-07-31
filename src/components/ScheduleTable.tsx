@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/schedule-table.css';
 import { columns, timeSlots, Column, TimeSlot, Day, Schedule } from '../constants';
-import { ExtendedDispatcher } from '../solver/glpkScheduler';
+import { ExtendedDispatcher } from '../types';
 import DispatcherDropdown from './DispatcherDropdown';
 import '../styles/dispatcher-dropdown.css';
 

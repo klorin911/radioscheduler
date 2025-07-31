@@ -1,12 +1,5 @@
 import { Day, TimeSlot, Column, timeSlots, columns } from '../constants';
-import { Dispatcher } from '../types';
-
-export type ExtendedDispatcher = Dispatcher & {
-  workDays?: string[];
-  preferredChannels?: string[];
-  preferredTimeBlocks?: string[];
-  shift?: string;
-};
+import { ExtendedDispatcher, extractBadgeNumber } from '../types';
 
 const shiftSlots: Record<string, TimeSlot[]> = {
   A: ['0330-0530','0530-0730','0730-0930','0930-1130','1130-1330'],
@@ -40,10 +33,6 @@ function createEmptyDay(): ScheduleDay {
  * @param day Day of week
  * @param dispatchers list including availability information (workDays, prefs)
  */
-function extractBadgeNumber(id: string): number {
-  const match = id.match(/\d+/);
-  return match ? parseInt(match[0]) : 9999; // default high number for non-standard IDs
-}
 
 export async function generateScheduleForDay(
   day: Day,

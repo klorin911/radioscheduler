@@ -1,6 +1,7 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -51,6 +52,75 @@ app.on('activate', () => {
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
+  }
+})
+
+// IPC handlers for dispatcher file operations
+const getDispatchersFilePath = () => {
+  // Use project directory (radioscheduler folder)
+  const projectPath = path.join(__dirname, '..') // Go up from dist-electron to project root
+  return path.join(projectPath, 'dispatchers.json')
+}
+
+// Helper to ensure file exists
+function ensureDispatchersFileExists() {
+  const filePath = getDispatchersFilePath()
+  if (!fs.existsSync(filePath)) {
+    const dirPath = path.dirname(filePath)
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true })
+    }
+    console.log('Creating new dispatchers.json file with empty array')
+    fs.writeFileSync(filePath, JSON.stringify([]))
+  }
+}
+
+ipcMain.handle('get-dispatchers', async () => {
+  try {
+    ensureDispatchersFileExists()
+    const filePath = getDispatchersFilePath()
+    console.log('Loading dispatchers from:', filePath)
+    
+    const data = fs.readFileSync(filePath, 'utf-8')
+    // console.log('File content:', data) // Removed to avoid console spam
+    const parsed = JSON.parse(data)
+    console.log('Loaded dispatchers:', parsed.length, 'items')
+    return parsed
+  } catch (error) {
+    console.error('Error loading dispatchers:', error)
+    return []
+  }
+})
+
+ipcMain.handle('save-dispatchers', async (_, dispatchers) => {
+  try {
+    const filePath = getDispatchersFilePath()
+    const dirPath = path.dirname(filePath)
+    
+    console.log('Saving dispatchers to:', filePath)
+    console.log('Dispatchers to save:', dispatchers.length, 'items')
+    console.log('Directory exists:', fs.existsSync(dirPath))
+    
+    // Ensure directory exists
+    if (!fs.existsSync(dirPath)) {
+      console.log('Creating directory:', dirPath)
+      fs.mkdirSync(dirPath, { recursive: true })
+    }
+    
+    const jsonContent = JSON.stringify(dispatchers, null, 2)
+    // console.log('Writing content:', jsonContent) // Removed to avoid console spam
+    fs.writeFileSync(filePath, jsonContent)
+    
+    // Verify the file was written
+    if (fs.existsSync(filePath)) {
+      const fileSize = fs.statSync(filePath).size
+      console.log('File written successfully, size:', fileSize, 'bytes')
+    }
+    
+    return true
+  } catch (error) {
+    console.error('Error saving dispatchers:', error)
+    return false
   }
 })
 

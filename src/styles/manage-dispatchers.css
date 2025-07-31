@@ -1,16 +1,46 @@
 .manage-dispatchers-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 1rem 20px 20px 20px;
 }
 
 .manage-dispatchers-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #444;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  padding: 8px 12px;
+  background-color: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 14px;
+  min-width: 250px;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.search-input::placeholder {
+  color: #888;
 }
 
 .manage-dispatchers-title {
@@ -184,10 +214,20 @@
   transition: all 0.2s;
 }
 
+.work-day-btn:hover {
+  border-color: #555; /* Different hover color for unselected */
+  background-color: #3a3a3a;
+}
+
 .work-day-btn.selected {
   border-color: #646cff;
   background-color: #646cff;
   color: white;
+}
+
+.work-day-btn.selected:hover {
+  border-color: #7c7cff; /* Lighter blue on hover when selected */
+  background-color: #7c7cff;
 }
 
 .channels-container {

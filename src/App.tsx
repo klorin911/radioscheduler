@@ -4,7 +4,7 @@ import './styles/layout.css';
 import './styles/manage-dispatchers.css';
 import { days, Day, Schedule } from './constants';
 
-import { ExtendedDispatcher } from './solver/glpkScheduler';
+import { ExtendedDispatcher } from './types';
 import ManageDispatchers from './components/ManageDispatchers';
 import ScheduleTable from './components/ScheduleTable';
 import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './scheduleUtils';
@@ -13,19 +13,32 @@ import { generateWeeklySchedule } from './solver/weekScheduler';
 function App() {
   const [schedule, setSchedule] = useState<Schedule>(() => loadSchedule());
   const [selectedDay, setSelectedDay] = useState<Day>('Monday');
-  const [dispatchers, setDispatchers] = useState<ExtendedDispatcher[]>(() => loadDispatchers() as ExtendedDispatcher[]);
+  const [dispatchers, setDispatchers] = useState<ExtendedDispatcher[]>([]);
   const [showDispatchersPage, setShowDispatchersPage] = useState(false);
   const [solving, setSolving] = useState(false);
+  const [dispatchersLoaded, setDispatchersLoaded] = useState(false);
+
+  // Load dispatchers on mount
+  useEffect(() => {
+    const loadDispatchersAsync = async () => {
+      const loadedDispatchers = await loadDispatchers();
+      setDispatchers(loadedDispatchers as ExtendedDispatcher[]);
+      setDispatchersLoaded(true);
+    };
+    loadDispatchersAsync();
+  }, []);
 
   // Save schedule 
   useEffect(() => {
     saveSchedule(schedule);
   }, [schedule]);
 
-  // Save dispatchers
+  // Save dispatchers (only after initial load to prevent overwriting)
   useEffect(() => {
-    saveDispatchers(dispatchers);
-  }, [dispatchers]);
+    if (dispatchersLoaded) {
+      saveDispatchers(dispatchers);
+    }
+  }, [dispatchers, dispatchersLoaded]);
 
   const handleChange = (
     day: Day,

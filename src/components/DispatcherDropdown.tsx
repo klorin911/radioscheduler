@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ExtendedDispatcher } from '../solver/glpkScheduler';
+import { ExtendedDispatcher } from '../types';
 import DispatcherTooltip from './DispatcherTooltip';
 import '../styles/dispatcher-dropdown.css';
 
@@ -12,7 +12,6 @@ interface Props {
 
 const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, className }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredDispatcher, setHoveredDispatcher] = useState<ExtendedDispatcher | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -30,7 +29,6 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
   const handleSelect = (dispatcherName: string) => {
     onChange(dispatcherName);
     setIsOpen(false);
-    setHoveredDispatcher(null);
   };
 
   const getDispatcherByName = (name: string) => {
@@ -68,7 +66,6 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
           <div
             className="dropdown-option"
             onClick={() => handleSelect('')}
-            onMouseEnter={() => setHoveredDispatcher(null)}
           >
             <span>(None)</span>
           </div>
@@ -79,8 +76,6 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
                 <div
                   className={`dropdown-option ${value === name ? 'selected' : ''}`}
                   onClick={() => handleSelect(name)}
-                  onMouseEnter={() => setHoveredDispatcher(dispatcher)}
-                  onMouseLeave={() => setHoveredDispatcher(null)}
                 >
                   <span>{name}</span>
                 </div>

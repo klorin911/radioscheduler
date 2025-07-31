@@ -1,14 +1,6 @@
-import React, { useState } from 'react';
-import { Dispatcher } from '../types';
+import React, { useState, useMemo } from 'react';
+import { ExtendedDispatcher } from '../types';
 import '../styles/manage-dispatchers.css';
-
-interface ExtendedDispatcher extends Dispatcher {
-  badgeNumber?: string;
-  preferredChannels?: string[]; // ordered array
-  preferredTimeBlocks?: string[]; // ordered array
-  workDays?: string[]; // array of selected days
-  shift?: string; // A-F
-}
 
 interface Props {
   dispatchers: ExtendedDispatcher[];
@@ -20,12 +12,30 @@ const weekDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday',
 
 const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
   const [expandedCard, setExpandedCard] = useState<number | null>(null);
+  const [newShortName, setNewShortName] = useState('');
   const [newName, setNewName] = useState('');
   const [newBadge, setNewBadge] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter dispatchers based on search term
+  const filteredDispatchers = useMemo(() => {
+    if (!searchTerm.trim()) return dispatchers;
+    const search = searchTerm.toLowerCase();
+    const filtered = dispatchers.filter((dispatcher) => {
+      const matchesId = dispatcher.id.toLowerCase().includes(search);
+      const matchesName = dispatcher.name.toLowerCase().includes(search);
+      const matchesBadge = dispatcher.badgeNumber && dispatcher.badgeNumber.toString().includes(search);
+      return matchesId || matchesName || matchesBadge;
+    });
+    console.log(`Search: "${searchTerm}" - Found ${filtered.length} of ${dispatchers.length}`);
+    return filtered;
+  }, [dispatchers, searchTerm]);
+
+
 
   const addDispatcher = () => {
-    if (!newName.trim()) return;
-    const id = newBadge.trim() || newName.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!newShortName.trim() || !newName.trim()) return;
+    const id = newShortName.trim().toUpperCase();
     const exists = dispatchers.find((d) => d.id === id);
     if (exists) return;
     onChange([
@@ -33,13 +43,14 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
       {
         id,
         name: newName.trim(),
-        badgeNumber: newBadge.trim(),
+        badgeNumber: newBadge.trim() ? parseInt(newBadge.trim(), 10) : undefined,
         preferredChannels: [],
         preferredTimeBlocks: [],
         workDays: [],
         shift: 'A',
       },
     ]);
+    setNewShortName('');
     setNewName('');
     setNewBadge('');
   };
@@ -105,37 +116,54 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
   return (
     <div className="manage-dispatchers-container">
       <div className="manage-dispatchers-header">
-        <h2 className="manage-dispatchers-title">Manage Dispatchers</h2>
-        <button
-          onClick={() => {
-            setNewName('');
-            setNewBadge('');
-            // Collapse all cards
-            setExpandedCard(null);
-          }}
-          className="add-dispatcher-btn"
-        >
-          Collapse All
-        </button>
+        <h2 className="manage-dispatchers-title">Manage Dispatchers ({filteredDispatchers.length}/{dispatchers.length})</h2>
+        <div className="header-controls">
+          <input
+            type="text"
+            placeholder="Search by ID, name, or badge number..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+          <button
+            onClick={() => {
+              setNewShortName('');
+              setNewName('');
+              setNewBadge('');
+              setSearchTerm('');
+              // Collapse all cards
+              setExpandedCard(null);
+            }}
+            className="add-dispatcher-btn"
+          >
+            Clear All
+          </button>
+        </div>
       </div>
 
       {/* Add Dispatcher Form */}
       <div className="add-dispatcher-form">
         <input
-          placeholder="Name (required)"
+          placeholder="Short Name/ID (e.g., KLOR) - required"
+          value={newShortName}
+          onChange={(e) => setNewShortName(e.target.value)}
+          className="add-dispatcher-input"
+        />
+        <input
+          placeholder="Full Name (required)"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           className="add-dispatcher-input"
         />
         <input
-          placeholder="Badge # (optional)"
+          placeholder="Badge # (for seniority)"
           value={newBadge}
           onChange={(e) => setNewBadge(e.target.value)}
           className="add-dispatcher-input"
         />
         <button
           onClick={addDispatcher}
-          disabled={!newName.trim()}
+          disabled={!newShortName.trim() || !newName.trim()}
           className="add-dispatcher-btn"
         >
           Add Dispatcher
@@ -143,34 +171,55 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
       </div>
 
       {/* Dispatcher Cards */}
-      <div className="dispatchers-list">
-        {dispatchers.map((d, i) => (
-          <div key={d.id} className="dispatcher-card">
+      <div className="dispatchers-list" key={`list-${searchTerm}-${filteredDispatchers.length}`}>
+        {filteredDispatchers.map((d, filteredIndex) => {
+          // Find the original index in the full dispatchers array
+          const originalIndex = dispatchers.findIndex(dispatcher => dispatcher.id === d.id);
+          return (
+            <div key={d.id} className="dispatcher-card">
             {/* Card Header */}
             <div 
-              onClick={() => setExpandedCard(expandedCard === i ? null : i)}
+              onClick={() => setExpandedCard(expandedCard === filteredIndex ? null : filteredIndex)}
               className="dispatcher-card-header"
             >
               <div className="dispatcher-card-header-content">
-                <div>
+                <div className="dispatcher-id-section">
+                  <label>ID:</label>
                   <input
-                    value={d.name}
-                    onChange={(e) => update(i, 'name', e.target.value)}
+                    value={d.id}
+                    onChange={(e) => update(originalIndex, 'id', e.target.value.toUpperCase())}
                     onClick={(e) => e.stopPropagation()}
-                    className="dispatcher-name-input"
-                    placeholder="Name"
+                    className="dispatcher-id-input"
+                    placeholder="Short Name (e.g., KLOR)"
                   />
                 </div>
-                <input
-                  placeholder="Badge #"
-                  value={d.badgeNumber || ''}
-                  onChange={(e) => update(i, 'badgeNumber', e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="dispatcher-badge-input"
-                />
+                <div className="dispatcher-name-section">
+                  <label>Name:</label>
+                  <input
+                    value={d.name}
+                    onChange={(e) => update(originalIndex, 'name', e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="dispatcher-name-input"
+                    placeholder="Full Name"
+                  />
+                </div>
+                <div className="dispatcher-badge-section">
+                  <label>Badge #:</label>
+                  <input
+                    placeholder="Badge # (seniority)"
+                    value={d.badgeNumber || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.trim();
+                      const numValue = value ? parseInt(value, 10) : undefined;
+                      update(originalIndex, 'badgeNumber', numValue);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="dispatcher-badge-input"
+                  />
+                </div>
                 <select
                   value={d.shift || 'A'}
-                  onChange={(e) => update(i, 'shift', e.target.value)}
+                  onChange={(e) => update(originalIndex, 'shift', e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                   className="dispatcher-shift-select"
                 >
@@ -184,19 +233,19 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
               </div>
               <div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); remove(i); }}
+                  onClick={(e) => { e.stopPropagation(); remove(originalIndex); }}
                   className="delete-btn"
                 >
                   Delete
                 </button>
                 <span className="expand-icon">
-                  {expandedCard === i ? '▼' : '▶'}
+                  {expandedCard === filteredIndex ? '▼' : '▶'}
                 </span>
               </div>
             </div>
 
             {/* Expanded Content */}
-            {expandedCard === i && (
+            {expandedCard === filteredIndex && (
               <div className="dispatcher-card-expanded-content">
                 {/* Work Days */}
                 <div className="work-days-container">
@@ -205,7 +254,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                     {weekDays.map(day => (
                       <button
                         key={day}
-                        onClick={() => toggleWorkDay(i, day)}
+                        onClick={() => toggleWorkDay(originalIndex, day)}
                         className={`work-day-btn ${d.workDays?.includes(day) ? 'selected' : ''}`}
                       >
                         {day.slice(0, 3)}
@@ -224,7 +273,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         {channels.filter(ch => !(d.preferredChannels || []).includes(ch)).map(channel => (
                           <button
                             key={channel}
-                            onClick={() => addChannel(i, channel)}
+                            onClick={() => addChannel(originalIndex, channel)}
                             className="add-channel-btn"
                           >
                             + {channel}
@@ -239,9 +288,9 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                           <div key={channel} className="ranked-channel-item">
                             <span className="channel-rank">#{idx + 1}</span>
                             <span className="channel-name">{channel}</span>
-                            <button onClick={() => moveChannelUp(i, idx)} disabled={idx === 0} className="channel-action-btn move-up-btn">↑</button>
-                            <button onClick={() => moveChannelDown(i, idx)} disabled={idx === (d.preferredChannels || []).length - 1} className="channel-action-btn move-down-btn">↓</button>
-                            <button onClick={() => removeChannel(i, channel)} className="channel-action-btn remove-channel-btn">×</button>
+                            <button onClick={() => moveChannelUp(originalIndex, idx)} disabled={idx === 0} className="channel-action-btn move-up-btn">↑</button>
+                            <button onClick={() => moveChannelDown(originalIndex, idx)} disabled={idx === (d.preferredChannels || []).length - 1} className="channel-action-btn move-down-btn">↓</button>
+                            <button onClick={() => removeChannel(originalIndex, channel)} className="channel-action-btn remove-channel-btn">×</button>
                           </div>
                         ))}
                       </div>
@@ -259,7 +308,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         {timeBlocks.filter(tb => !(d.preferredTimeBlocks || []).includes(tb)).map(timeBlock => (
                           <button
                             key={timeBlock}
-                            onClick={() => addTimeBlock(i, timeBlock)}
+                            onClick={() => addTimeBlock(originalIndex, timeBlock)}
                             className="add-time-block-btn"
                           >
                             + {timeBlock}
@@ -273,7 +322,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         {(d.preferredTimeBlocks || []).map(timeBlock => (
                           <div key={timeBlock} className="selected-time-block-item">
                             <span className="time-block-text">{timeBlock}</span>
-                            <button onClick={() => removeTimeBlock(i, timeBlock)} className="remove-time-block-btn">×</button>
+                            <button onClick={() => removeTimeBlock(originalIndex, timeBlock)} className="remove-time-block-btn">×</button>
                           </div>
                         ))}
                       </div>
@@ -282,8 +331,9 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                 </div>
               </div>
             )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
