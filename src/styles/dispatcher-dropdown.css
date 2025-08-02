@@ -81,3 +81,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.dropdown-option.disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dropdown-option.disabled:hover {
+  background-color: transparent;
+}
