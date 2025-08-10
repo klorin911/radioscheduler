@@ -34,6 +34,17 @@ export const columns = [
   'RELIEF',
 ] as const;
 
+// Selectable channels for preferences (excludes UT as it's auto-assigned)
+export const selectableChannels = [
+  'SW',
+  'CE',
+  'SE',
+  'NE',
+  'NW',
+  'MT',
+  'RELIEF',
+] as const;
+
 export type Day = typeof days[number];
 export type TimeSlot = typeof timeSlots[number];
 export type Column = typeof columns[number];

@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ExtendedDispatcher } from '../types';
+import { Day, TimeSlot, Column } from '../constants';
+import { SHIFT_SLOTS } from '../solver/utils/shiftUtils';
 import DispatcherTooltip from './DispatcherTooltip';
 import '../styles/dispatcher-dropdown.css';
 
@@ -8,9 +10,12 @@ interface Props {
   dispatchers: ExtendedDispatcher[];
   onChange: (value: string) => void;
   className?: string;
+  day?: Day;
+  timeSlot?: TimeSlot;
+  column?: Column;
 }
 
-const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, className }) => {
+const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, className, day, timeSlot, column }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingValue, setTypingValue] = useState('');
@@ -38,9 +43,81 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
     setTypingValue('');
   }, [onChange]);
 
+  // Enable typing directly on the button (including when filled)
+  const handleButtonKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    // Printable keys or Backspace should start/continue typing
+    if ((event.key.length === 1) || event.key === 'Backspace') {
+      event.preventDefault();
+      if (!isTyping) {
+        setIsTyping(true);
+        setIsOpen(true);
+        setTypingValue(event.key === 'Backspace' ? '' : event.key);
+      } else {
+        setTypingValue(prev => event.key === 'Backspace' ? prev.slice(0, -1) : prev + event.key);
+      }
+      if (inputRef.current) inputRef.current.focus();
+      return;
+    }
+
+    // Confirm current typed value
+    if (event.key === 'Enter' && isTyping) {
+      const searchTerm = typingValue.toLowerCase().trim();
+      if (searchTerm && day && timeSlot && column !== 'UT') {
+        // Try trainer/trainee pair first
+        const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
+        for (const trainer of trainers) {
+          const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
+          const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+            const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
+            return !days || days.length === 0 || days.includes(day);
+          };
+          const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+            const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
+            if (!effectiveShift) return true;
+            const slots = SHIFT_SLOTS[effectiveShift] || [];
+            return slots.includes(timeSlot);
+          };
+          const present = trainees.filter(t => worksOnDay(t, trainer) && inShift(t, trainer));
+          const match = present.find(t => (
+            t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
+          ));
+          if (match) {
+            const trainerKey = trainer.name || trainer.id;
+            const traineeKey = match.name || match.id;
+            handleSelect(`${trainerKey}/${traineeKey}`);
+            event.preventDefault();
+            return;
+          }
+        }
+      }
+
+      // Fallback to first matching dispatcher
+      const filtered = dispatchers.filter(d =>
+        d.id.toLowerCase().startsWith(searchTerm) || (d.name && d.name.toLowerCase().startsWith(searchTerm))
+      );
+      const match = filtered[0];
+      if (match) handleSelect(match.name || match.id);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setIsTyping(false);
+      setTypingValue('');
+      setIsOpen(false);
+      event.preventDefault();
+    }
+  }, [isTyping, typingValue, dispatchers, handleSelect, day, timeSlot, column]);
+
   // Handle keyboard input for typing
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Avoid double-handling: skip global handler when keydown originates on our button
+      const target = event.target as HTMLElement | null;
+      if (target && target.tagName === 'BUTTON' && target.classList.contains('dropdown-button')) {
+        return;
+      }
+
       if (dropdownRef.current && dropdownRef.current.contains(document.activeElement)) {
         // Check if it's a printable character or backspace
         if ((event.key.length === 1) || event.key === 'Backspace') {
@@ -68,8 +145,39 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
             inputRef.current.focus();
           }
         } else if (event.key === 'Enter' && isTyping) {
-          // Find matching dispatcher and select it
-          const searchTerm = typingValue.toLowerCase();
+          // First, try to match a trainer/trainee pair when searching by trainee
+          const searchTerm = typingValue.toLowerCase().trim();
+          if (searchTerm && day && timeSlot && column !== 'UT') {
+            // Trainers only
+            const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
+            for (const trainer of trainers) {
+              const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
+              // Respect day/shift presence
+              const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+                const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
+                return !days || days.length === 0 || days.includes(day);
+              };
+              const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+                const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
+                if (!effectiveShift) return true;
+                const slots = SHIFT_SLOTS[effectiveShift] || [];
+                return slots.includes(timeSlot);
+              };
+              const present = trainees.filter(t => worksOnDay(t, trainer) && inShift(t, trainer));
+              const match = present.find(t => (
+                t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
+              ));
+              if (match) {
+                const trainerKey = trainer.name || trainer.id;
+                const traineeKey = match.name || match.id;
+                handleSelect(`${trainerKey}/${traineeKey}`);
+                event.preventDefault();
+                return;
+              }
+            }
+          }
+
+          // Fall back to first matching dispatcher (including trainees) by ID or name
           const filteredDispatchers = dispatchers.filter(dispatcher => 
             dispatcher.id.toLowerCase().startsWith(searchTerm) ||
             (dispatcher.name && dispatcher.name.toLowerCase().startsWith(searchTerm))
@@ -90,39 +198,79 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isTyping, typingValue, dispatchers, handleSelect]);
+  }, [isTyping, typingValue, dispatchers, handleSelect, day, timeSlot, column]);
 
   const getFilteredDispatchers = () => {
-    // If no typing value, show all dispatchers
+    // If no typing value, show all dispatchers (trainers and trainees)
     if (!typingValue || !typingValue.trim()) {
       return dispatchers;
     }
-    
+
     const searchTerm = typingValue.toLowerCase().trim();
-    
+
     const filtered = dispatchers.filter(dispatcher => {
       const dispatcherId = dispatcher.id.toLowerCase();
       const dispatcherName = dispatcher.name ? dispatcher.name.toLowerCase() : '';
-      
-      // Check if dispatcher ID starts with search term (case insensitive)
+
       const idStartsWith = dispatcherId.startsWith(searchTerm);
-      // Check if dispatcher name starts with search term (case insensitive)
       const nameStartsWith = dispatcherName && dispatcherName.startsWith(searchTerm);
-      
-      return idStartsWith || nameStartsWith;
+
+      // Also include a trainer if any of their present trainees match the search
+      let traineeMatches = false;
+      if (!dispatcher.isTrainee && !dispatcher.traineeOf && day && timeSlot && column !== 'UT') {
+        const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
+        const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+          const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
+          return !days || days.length === 0 || days.includes(day);
+        };
+        const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+          const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
+          if (!effectiveShift) return true;
+          const slots = SHIFT_SLOTS[effectiveShift] || [];
+          return slots.includes(timeSlot);
+        };
+        traineeMatches = trainees
+          .filter(t => worksOnDay(t, dispatcher) && inShift(t, dispatcher))
+          .some(t => t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm));
+      }
+
+      return idStartsWith || nameStartsWith || traineeMatches;
     });
-    
+
     return filtered;
   };
 
-
-
-  const getDispatcherByName = (name: string) => {
-    return dispatchers.find(d => (d.name || d.id) === name);
+  const getDispatcherByName = (identifier: string) => {
+    if (!identifier) return undefined;
+    // Support composite values like "TRAINER/TRAINEE" by matching trainer (first part)
+    const base = identifier.includes('/') ? identifier.split('/')[0].trim() : identifier;
+    // Match by ID or Name explicitly; do not short-circuit on name presence
+    return dispatchers.find(d => d.id === base || d.name === base);
   };
 
   const selectedDispatcher = value ? getDispatcherByName(value) : null;
   const filteredDispatchers = getFilteredDispatchers();
+
+  // Compute trainee label overlay for trainer selections in radio columns
+  const displayLabel = useMemo(() => {
+    // While typing, show what the user types
+    if (isTyping) return typingValue;
+
+    // If the stored value is composite (e.g., "TRAINER/TRAINEE"), render as ID/ID
+    if (value && value.includes('/')) {
+      const [a, b] = value.split('/').map(s => s.trim());
+      const toId = (part: string) => {
+        const d = dispatchers.find(x => (x.id === part || x.name === part));
+        return d ? d.id : part;
+      };
+      if (b) return `${toId(a)}/${toId(b)}`;
+      return toId(a);
+    }
+
+    // For single selections, always display just the trainer's ID (no automatic overlay)
+    if (!selectedDispatcher) return value ? value : '';
+    return selectedDispatcher.id;
+  }, [selectedDispatcher, isTyping, typingValue, value, dispatchers]);
 
   return (
     <div className={`dispatcher-dropdown ${className || ''}`} ref={dropdownRef}>
@@ -146,9 +294,10 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
           <button
             className="dropdown-button filled"
             onClick={() => setIsOpen(!isOpen)}
+            onKeyDown={handleButtonKeyDown}
             tabIndex={0}
           >
-            {selectedDispatcher.id}
+            {displayLabel}
             <span className="dropdown-arrow">▼</span>
           </button>
         </DispatcherTooltip>
@@ -156,9 +305,10 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
         <button
           className={`dropdown-button ${value ? 'filled' : 'empty'}`}
           onClick={() => setIsOpen(!isOpen)}
+          onKeyDown={handleButtonKeyDown}
           tabIndex={0}
         >
-          {isTyping ? typingValue : (value ? (getDispatcherByName(value)?.id || value) : '')}
+          {isTyping ? typingValue : displayLabel}
           <span className="dropdown-arrow">▼</span>
         </button>
       )}
@@ -177,15 +327,58 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
               const name = dispatcher.name || dispatcher.id;
               // Use badgeNumber + ID as unique key since names can be duplicated
               const uniqueKey = `${dispatcher.badgeNumber}-${dispatcher.id}`;
+
+              // Helper to compute present trainees for this trainer in the current slot
+              const presentTrainees = (() => {
+                if (!day || !timeSlot || column === 'UT') return [] as ExtendedDispatcher[];
+                const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
+                const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+                  const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
+                  return !days || days.length === 0 || days.includes(day);
+                };
+                const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
+                  const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
+                  if (!effectiveShift) return true;
+                  const slots = SHIFT_SLOTS[effectiveShift] || [];
+                  return slots.includes(timeSlot);
+                };
+                let pts = trainees.filter(t => worksOnDay(t, dispatcher) && inShift(t, dispatcher));
+                // When searching, only show trainee pairs that match the query
+                if (typingValue && typingValue.trim()) {
+                  const st = typingValue.toLowerCase().trim();
+                  pts = pts.filter(t => t.id.toLowerCase().startsWith(st) || (t.name || '').toLowerCase().startsWith(st));
+                }
+                return pts;
+              })();
+
               return (
-                <DispatcherTooltip key={uniqueKey} dispatcher={dispatcher}>
-                  <div
-                    className={`dropdown-option ${value === name ? 'selected' : ''}`}
-                    onClick={() => handleSelect(name)}
-                  >
-                    <span>{dispatcher.id}</span>
-                  </div>
-                </DispatcherTooltip>
+                <React.Fragment key={uniqueKey}>
+                  <DispatcherTooltip dispatcher={dispatcher}>
+                    <div
+                      className={`dropdown-option ${value === name ? 'selected' : ''}`}
+                      onClick={() => handleSelect(name)}
+                    >
+                      <span>{dispatcher.id}</span>
+                    </div>
+                  </DispatcherTooltip>
+
+                  {/* Trainer-with-trainee options (one per present trainee) */}
+                  {presentTrainees.map((t) => {
+                    const traineeLabelId = t.id;
+                    const pairValue = `${name}/${t.name || t.id}`; // store as names when available
+                    const pairDisplay = `${dispatcher.id}/${traineeLabelId}`; // show IDs in UI
+                    const pairKey = `${uniqueKey}-pair-${t.badgeNumber}-${t.id}`;
+                    return (
+                      <div
+                        key={pairKey}
+                        className={`dropdown-option ${value === pairValue ? 'selected' : ''}`}
+                        onClick={() => handleSelect(pairValue)}
+                      >
+                        <span>{pairDisplay}</span>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
               );
             })
           ) : isTyping && typingValue.trim() && (

@@ -11,6 +11,34 @@ export interface ExtendedDispatcher extends Dispatcher {
   preferredChannels?: string[];
   preferredTimeBlocks?: string[];
   shift?: string;
+
+  /**
+   * Training configuration
+   */
+  /** If true, this dispatcher is a trainee (will never be assigned radio/UT). */
+  isTrainee?: boolean;
+  /** If set, the short ID of their trainer (e.g., "KELL"). */
+  traineeOf?: string;
+  /** If true, the trainee follows their trainer's work days and shift hours. */
+  followTrainerSchedule?: boolean;
+
+  /**
+   * If true, scheduler will limit dispatcher to exactly one radio slot per day.
+   * If false or undefined, the dispatcher can receive additional radio slots when available.
+   */
+  minimumRadioOnly?: boolean;
+
+  /**
+   * If true, dispatcher is eligible for additional Utility (UT) slots after all
+   * dispatchers have received their required single UT for the week.
+   */
+  wantsExtraUtility?: boolean;
+
+  /**
+   * If true, dispatcher will be completely skipped by the auto-scheduler
+   * (no radio or UT slots will be assigned automatically).
+   */
+  excludeFromAutoSchedule?: boolean;
 }
 
 // Electron API types

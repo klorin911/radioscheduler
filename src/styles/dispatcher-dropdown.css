@@ -33,6 +33,27 @@
   border-color: #444;
 }
 
+/* Validation states applied via parent container className */
+.dispatcher-dropdown.error .dropdown-button {
+  background-color: #5a1f1f !important; /* red */
+  border-color: #a33 !important;
+  color: #fff !important;
+}
+.dispatcher-dropdown.error .dropdown-button:hover {
+  background-color: #6a2a2a !important;
+  border-color: #bb4444 !important;
+}
+
+.dispatcher-dropdown.warning .dropdown-button {
+  background-color: #5a521f !important; /* amber */
+  border-color: #c2a83a !important;
+  color: #fff !important;
+}
+.dispatcher-dropdown.warning .dropdown-button:hover {
+  background-color: #6a5e24 !important;
+  border-color: #d4bb46 !important;
+}
+
 .dropdown-arrow {
   font-size: 10px;
   color: #888;

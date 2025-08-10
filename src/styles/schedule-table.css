@@ -1,5 +1,42 @@
 .schedule-table-wrapper {
   margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.daily-counts-summary {
+  background-color: #2a2a2a;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #444;
+}
+
+.daily-counts-summary strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #ccc;
+}
+
+.counts-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.count-pill {
+  background-color: #3e3e3e;
+  color: #e0e0e0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.count-pill strong {
+  color: #fff;
+  display: inline;
+  margin-left: 4px;
 }
 
 .schedule-table {

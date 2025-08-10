@@ -7,7 +7,7 @@ interface Props {
   onChange: (list: ExtendedDispatcher[]) => void;
 }
 
-import { columns as channels, timeSlots as timeBlocks } from '../constants';
+import { selectableChannels as channels, timeSlots as timeBlocks } from '../constants';
 const weekDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
 const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
@@ -48,6 +48,11 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
         preferredTimeBlocks: [],
         workDays: [],
         shift: 'A',
+        isTrainee: false,
+        followTrainerSchedule: false,
+        minimumRadioOnly: false,
+        wantsExtraUtility: false,
+        excludeFromAutoSchedule: false,
       },
     ]);
     setNewShortName('');
@@ -222,6 +227,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                   onChange={(e) => update(originalIndex, 'shift', e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                   className="dispatcher-shift-select"
+                  disabled={!!(d.isTrainee && d.followTrainerSchedule)}
                 >
                   <option value="A">Shift A (0300-1330)</option>
                   <option value="B">Shift B (0700-1730)</option>
@@ -247,6 +253,53 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
             {/* Expanded Content */}
             {expandedCard === filteredIndex && (
               <div className="dispatcher-card-expanded-content">
+                {/* Training Section */}
+                <div className="training-container">
+                  <h4 className="section-title">Training</h4>
+                  <div className="checkbox-row">
+                    <label className="custom-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={d.isTrainee || false}
+                        onChange={(e) => update(originalIndex, 'isTrainee', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="checkbox-label">Trainee</span>
+                    </label>
+                  </div>
+                  {d.isTrainee ? (
+                    <div className="trainer-controls">
+                      <div className="trainer-select-row">
+                        <label>Trainer:</label>
+                        <select
+                          value={d.traineeOf || ''}
+                          onChange={(e) => update(originalIndex, 'traineeOf', e.target.value || undefined as any)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="trainer-select"
+                        >
+                          <option value="">-- Select Trainer --</option>
+                          {dispatchers
+                            .filter((p) => p.id !== d.id && !p.isTrainee)
+                            .sort((a, b) => a.id.localeCompare(b.id))
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>{p.id} — {p.name}</option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className="checkbox-row">
+                        <label className="custom-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={d.followTrainerSchedule || false}
+                            onChange={(e) => update(originalIndex, 'followTrainerSchedule', e.target.checked)}
+                          />
+                          <span className="checkmark"></span>
+                          <span className="checkbox-label">Follow trainer's days off and shift</span>
+                        </label>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
                 {/* Work Days */}
                 <div className="work-days-container">
                   <h4 className="section-title">Work Days</h4>
@@ -256,6 +309,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         key={day}
                         onClick={() => toggleWorkDay(originalIndex, day)}
                         className={`work-day-btn ${d.workDays?.includes(day) ? 'selected' : ''}`}
+                        disabled={!!(d.isTrainee && d.followTrainerSchedule)}
                       >
                         {day.slice(0, 3)}
                       </button>
@@ -327,6 +381,52 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         ))}
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Radio & Utility Preferences */}
+                <div className="radio-util-container">
+                  <h4 className="section-title">Assignment Preferences</h4>
+
+                  {/* Minimum Radio Checkbox */}
+                  <div className="checkbox-row">
+                    <label className="custom-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={d.minimumRadioOnly || false}
+                        onChange={(e) => update(originalIndex, 'minimumRadioOnly', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="checkbox-label">Minimum Radio – Only assign me one radio slot per day</span>
+                    </label>
+                  </div>
+
+                  {/* Extra Radio removed: default is extra radio unless Minimum Radio is selected */}
+
+                  {/* Extra Utility Checkbox */}
+                  <div className="checkbox-row">
+                    <label className="custom-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={d.wantsExtraUtility || false}
+                        onChange={(e) => update(originalIndex, 'wantsExtraUtility', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="checkbox-label">Extra Utility – I’m willing to take additional UT slots</span>
+                    </label>
+                  </div>
+
+                  {/* Exclude from Auto Schedule Checkbox */}
+                  <div className="checkbox-row">
+                    <label className="custom-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={d.excludeFromAutoSchedule || false}
+                        onChange={(e) => update(originalIndex, 'excludeFromAutoSchedule', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="checkbox-label">Exclude from Auto Schedule – Do not assign me any slots</span>
+                    </label>
                   </div>
                 </div>
               </div>
