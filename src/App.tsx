@@ -57,16 +57,7 @@ function App() {
     return lines.join('\n');
   };
 
-  const buildCSVForDay = (sched: Schedule, day: Day): string => {
-    // Header row with Day in A1
-    const lines: string[] = [ [day, ...columns].map(csvQuote).join(',') ];
-    // Data rows
-    timeSlots.forEach((slot) => {
-      const row = [slot, ...columns.map((c) => sched[day][slot][c] || '')];
-      lines.push(row.map(csvQuote).join(','));
-    });
-    return lines.join('\n');
-  };
+  // Removed single-day CSV export builder
 
   const downloadCSV = (fileName: string, csv: string) => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -88,13 +79,7 @@ function App() {
     downloadCSV(file, csv);
   };
 
-  const handleExportDay = () => {
-    const csv = buildCSVForDay(schedule, selectedDay);
-    const ts = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const file = `radioschedule-${selectedDay}-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.csv`;
-    downloadCSV(file, csv);
-  };
+  // Removed single-day CSV export handler
 
   // --- Export Week to PDF (Mon-Thu on page 1; Fri-Sun on page 2) ---
   const handleExportWeekPDF = () => {
@@ -365,9 +350,7 @@ function App() {
           }}>
             {solving ? 'Generating...' : 'Auto Schedule'}
           </button>
-          <button onClick={handleExportDay}>
-            Export Day CSV
-          </button>
+          {/* Export Day CSV removed */}
           <button onClick={handleExportWeek}>
             Export Week CSV
           </button>
