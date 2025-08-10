@@ -62,23 +62,12 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
     // Confirm current typed value
     if (event.key === 'Enter' && isTyping) {
       const searchTerm = typingValue.toLowerCase().trim();
-      if (searchTerm && day && timeSlot && column !== 'UT') {
-        // Try trainer/trainee pair first
+      if (searchTerm && column !== 'UT') {
+        // Try trainer/trainee pair first (always offer pairs regardless of day/shift)
         const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
         for (const trainer of trainers) {
           const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
-          const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-            const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
-            return !days || days.length === 0 || days.includes(day);
-          };
-          const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-            const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
-            if (!effectiveShift) return true;
-            const slots = SHIFT_SLOTS[effectiveShift] || [];
-            return slots.includes(timeSlot);
-          };
-          const present = trainees.filter(t => worksOnDay(t, trainer) && inShift(t, trainer));
-          const match = present.find(t => (
+          const match = trainees.find(t => (
             t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
           ));
           if (match) {
@@ -147,24 +136,12 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
         } else if (event.key === 'Enter' && isTyping) {
           // First, try to match a trainer/trainee pair when searching by trainee
           const searchTerm = typingValue.toLowerCase().trim();
-          if (searchTerm && day && timeSlot && column !== 'UT') {
-            // Trainers only
+          if (searchTerm && column !== 'UT') {
+            // Trainers only (always consider all their trainees)
             const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
             for (const trainer of trainers) {
               const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
-              // Respect day/shift presence
-              const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-                const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
-                return !days || days.length === 0 || days.includes(day);
-              };
-              const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-                const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
-                if (!effectiveShift) return true;
-                const slots = SHIFT_SLOTS[effectiveShift] || [];
-                return slots.includes(timeSlot);
-              };
-              const present = trainees.filter(t => worksOnDay(t, trainer) && inShift(t, trainer));
-              const match = present.find(t => (
+              const match = trainees.find(t => (
                 t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
               ));
               if (match) {
@@ -328,21 +305,10 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
               // Use badgeNumber + ID as unique key since names can be duplicated
               const uniqueKey = `${dispatcher.badgeNumber}-${dispatcher.id}`;
 
-              // Helper to compute present trainees for this trainer in the current slot
+              // Helper to compute trainee list for this trainer (always offer pairs; exclude UT)
               const presentTrainees = (() => {
-                if (!day || !timeSlot || column === 'UT') return [] as ExtendedDispatcher[];
-                const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
-                const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-                  const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
-                  return !days || days.length === 0 || days.includes(day);
-                };
-                const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-                  const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
-                  if (!effectiveShift) return true;
-                  const slots = SHIFT_SLOTS[effectiveShift] || [];
-                  return slots.includes(timeSlot);
-                };
-                let pts = trainees.filter(t => worksOnDay(t, dispatcher) && inShift(t, dispatcher));
+                if (column === 'UT') return [] as ExtendedDispatcher[];
+                let pts = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
                 // When searching, only show trainee pairs that match the query
                 if (typingValue && typingValue.trim()) {
                   const st = typingValue.toLowerCase().trim();

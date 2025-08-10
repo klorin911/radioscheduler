@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import '../styles/schedule-table.css';
 import { columns, timeSlots, Column, TimeSlot, Day, Schedule } from '../constants';
 import { ExtendedDispatcher } from '../types';
@@ -16,17 +16,17 @@ interface Props {
 
 const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, slotCounts }) => {
   // Resolve a display value to dispatcher objects (supports trainer/trainee pairs "A/B")
-  const resolveParticipants = (value: string): ExtendedDispatcher[] => {
+  const resolveParticipants = useCallback((value: string): ExtendedDispatcher[] => {
     if (!value) return [];
     const parts = value.includes('/') ? value.split('/').map((s) => s.trim()) : [value.trim()];
     const findByLabel = (label: string): ExtendedDispatcher | undefined =>
       dispatchers.find((d) => d.id === label || d.name === label);
     return parts.map(findByLabel).filter((d): d is ExtendedDispatcher => !!d);
-  };
+  }, [dispatchers]);
 
   // Build duplicate map per timeslot for current day (any person assigned more than once)
   const duplicateIdsByTimeSlot = useMemo(() => {
-    const map: Record<TimeSlot, Set<string>> = {} as any;
+    const map: Record<TimeSlot, Set<string>> = {} as Record<TimeSlot, Set<string>>;
     timeSlots.forEach((slot) => {
       const counts = new Map<string, number>();
       columns.forEach((col) => {
@@ -45,7 +45,7 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
       map[slot] = dups;
     });
     return map;
-  }, [day, schedule, dispatchers]);
+  }, [day, schedule, resolveParticipants]);
 
   // Compute cell status: 'error' (red), 'warning' (yellow), or undefined
   const getCellStatus = (timeSlot: TimeSlot, column: Column, value: string): 'error' | 'warning' | undefined => {
@@ -82,8 +82,8 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
 
     if (hasDuplicate || violatesDayOrShift) return 'error';
 
-    // Preference warning (skip UT column). If dispatcher has preferences defined and this slot doesn't match.
-    if (column !== 'UT') {
+    // Preference warning (skip UT and RELIEF columns). If dispatcher has preferences defined and this slot doesn't match.
+    if (column !== 'UT' && column !== 'RELIEF') {
       const subject = trainer; // evaluate preferences on primary selection
       const hasChannelPrefs = Array.isArray(subject.preferredChannels) && subject.preferredChannels.length > 0;
       const hasTimePrefs = Array.isArray(subject.preferredTimeBlocks) && subject.preferredTimeBlocks.length > 0;
@@ -100,13 +100,27 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
     onChange(day, timeSlot, column, value);
   };
 
-  const assignedDispatchersWithCounts = Object.entries(slotCounts)
-    .map(([dispatcherId, count]) => {
-      const dispatcher = dispatchers.find((d) => d.id === dispatcherId);
-      return dispatcher ? { ...dispatcher, count } : null;
-    })
-    .filter((d): d is ExtendedDispatcher & { count: number } => d !== null && d.count > 0)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const scheduledDispatchersWithCounts = useMemo(() => {
+    const findTrainer = (traineeOf?: string) => dispatchers.find(d => d.id === traineeOf);
+    const worksOnDay = (person: ExtendedDispatcher): boolean => {
+      // If trainee follows trainer schedule, use trainer's days when available
+      if (person.followTrainerSchedule && person.isTrainee && person.traineeOf) {
+        const trainer = findTrainer(person.traineeOf);
+        const daysFor = trainer?.workDays;
+        return !daysFor || daysFor.length === 0 || daysFor.includes(day);
+      }
+      const daysFor = person.workDays;
+      return !daysFor || daysFor.length === 0 || daysFor.includes(day);
+    };
+
+    // Also include anyone actually assigned (even if not rostered for this day)
+    const assignedIds = new Set(Object.keys(slotCounts || {}));
+
+    return dispatchers
+      .filter(d => worksOnDay(d) || assignedIds.has(d.id))
+      .map(d => ({ ...d, count: slotCounts[d.id] ?? 0 }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [dispatchers, day, slotCounts]);
 
   return (
     <div className="schedule-table-wrapper">
@@ -148,8 +162,8 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
       <div className="daily-counts-summary">
         <strong>Daily Counts:</strong>
         <div className="counts-container">
-          {assignedDispatchersWithCounts.length > 0 ? (
-            assignedDispatchersWithCounts.map((d) => (
+          {scheduledDispatchersWithCounts.length > 0 ? (
+            scheduledDispatchersWithCounts.map((d) => (
               <div key={d.id} className="count-pill">
                 {d.name}: <strong>{d.count}</strong>
               </div>

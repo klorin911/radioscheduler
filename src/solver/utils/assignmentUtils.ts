@@ -9,11 +9,16 @@ const DEBUG = false;
 const log = (...args: unknown[]) => { if (DEBUG) console.log(...args); };
 
 /**
- * Computes seniority rank (lower value = more senior). Prefers numeric badgeNumber,
- * then parses digits from string badgeNumber (e.g., "D3016" -> 3016),
+ * Computes seniority rank (lower value = more senior).
+ * Prefers explicit dispatcher.seniority (1 = most senior).
+ * Falls back to numeric badgeNumber, then digits parsed from string badgeNumber (e.g., "D3016" -> 3016),
  * and finally falls back to extractBadgeNumber(id).
  */
 function getSeniorityRank(d: ExtendedDispatcher): number {
+  // Prefer explicit seniority rank if present
+  if (typeof (d as any).seniority === 'number' && !Number.isNaN((d as any).seniority)) {
+    return (d as any).seniority as number;
+  }
   // Prefer numeric badgeNumber if available
   if (typeof d.badgeNumber === 'number' && !Number.isNaN(d.badgeNumber)) {
     return d.badgeNumber;
@@ -77,7 +82,7 @@ export function generatePreferredAssignments(
 
   // Start from UI-provided or all columns, then exclude UT robustly
   const rawChannelPrefs = hasChannelPrefs ? (dispatcher.preferredChannels! as Column[]) : [...columns];
-  const channelPrefs = rawChannelPrefs.filter((col) => col !== 'UT') as Column[];
+  const channelPrefs = rawChannelPrefs.filter((col) => col !== 'UT' && col !== 'RELIEF') as Column[];
 
   // Use provided time preferences or default to eligible shift slots
   const timePrefs = hasTimePrefs ? (dispatcher.preferredTimeBlocks! as TimeSlot[]) : eligibleSlots;
@@ -125,14 +130,14 @@ export function assignMinimumSlot(
 
   // Build balancing counts (exclude UT) to reduce first-available bias
   const colFillCount: Record<Column, number> = {} as Record<Column, number>;
-  columns.forEach((c) => { if (c !== 'UT') colFillCount[c] = 0 as number; });
+  columns.forEach((c) => { if (c !== 'UT' && c !== 'RELIEF') colFillCount[c] = 0 as number; });
 
   const slotFillCount: Record<TimeSlot, number> = {} as Record<TimeSlot, number>;
   timeSlots.forEach((s) => { slotFillCount[s] = 0 as number; });
 
   timeSlots.forEach((s) => {
     columns.forEach((c) => {
-      if (c === 'UT') return;
+      if (c === 'UT' || c === 'RELIEF') return;
       const v = schedule[s][c];
       if (v && v.trim().length > 0) {
         slotFillCount[s]++;
@@ -150,7 +155,7 @@ export function assignMinimumSlot(
     if (isDispatcherInTimeslot(dispatcherKey, schedule, slot)) continue;
 
     // Find candidate columns: non-UT, empty
-    const candidateCols = columns.filter((c) => c !== 'UT' && !schedule[slot][c]);
+    const candidateCols = columns.filter((c) => c !== 'UT' && c !== 'RELIEF' && !schedule[slot][c]);
     if (candidateCols.length === 0) continue;
 
     // Pick least-used column for the day (tie-breaker: original order)
@@ -221,7 +226,7 @@ export function assignExtraRadioSlot(
 
   // 1) If dispatcher has preferences, try to assign a preferred slot first.
   if (hasPreferences(dispatcher)) {
-    const preferredAssignments = generatePreferredAssignments(dispatcher, schedule).filter(a => a.col !== 'UT');
+    const preferredAssignments = generatePreferredAssignments(dispatcher, schedule).filter(a => a.col !== 'UT' && a.col !== 'RELIEF');
     for (const assignment of preferredAssignments) {
       if (
         schedule[assignment.slot][assignment.col] === '' &&
@@ -240,16 +245,16 @@ export function assignExtraRadioSlot(
   // 2) Fallback – If no preferences OR all preferred slots were taken, find any available radio slot.
   const eligibleSlots = getEligibleSlots(dispatcher);
 
-  // Build balancing counts (exclude UT) similar to minimum-slot assignment
+  // Build balancing counts (exclude UT and RELIEF) similar to minimum-slot assignment
   const colFillCount: Record<Column, number> = {} as Record<Column, number>;
-  columns.forEach((c) => { if (c !== 'UT') colFillCount[c] = 0 as number; });
+  columns.forEach((c) => { if (c !== 'UT' && c !== 'RELIEF') colFillCount[c] = 0 as number; });
 
   const slotFillCount: Record<TimeSlot, number> = {} as Record<TimeSlot, number>;
   timeSlots.forEach((s) => { slotFillCount[s] = 0 as number; });
 
   timeSlots.forEach((s) => {
     columns.forEach((c) => {
-      if (c === 'UT') return;
+      if (c === 'UT' || c === 'RELIEF') return;
       const v = schedule[s][c];
       if (v && v.trim().length > 0) {
         slotFillCount[s]++;
@@ -263,7 +268,7 @@ export function assignExtraRadioSlot(
   for (const slot of sortedEligibleSlots) {
     if (isDispatcherInTimeslot(dispatcherKey, schedule, slot)) continue;
 
-    const candidateCols = columns.filter((c) => c !== 'UT' && !schedule[slot][c]);
+    const candidateCols = columns.filter((c) => c !== 'UT' && c !== 'RELIEF' && !schedule[slot][c]);
     if (candidateCols.length === 0) continue;
 
     candidateCols.sort((c1, c2) => (colFillCount[c1] || 0) - (colFillCount[c2] || 0));

@@ -13,6 +13,12 @@ export interface ExtendedDispatcher extends Dispatcher {
   shift?: string;
 
   /**
+   * Seniority rank (1 = most senior). Typically derived from badgeNumber
+   * with lower badge numbers being more senior.
+   */
+  seniority?: number;
+
+  /**
    * Training configuration
    */
   /** If true, this dispatcher is a trainee (will never be assigned radio/UT). */

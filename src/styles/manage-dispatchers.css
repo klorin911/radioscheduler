@@ -124,6 +124,14 @@
   align-items: center;
 }
 
+/* ID section aligns ID input and tiny badges */
+.dispatcher-id-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap; /* allow multiple badges to break to next line */
+}
+
 .dispatcher-id-input {
   font-size: 18px;
   font-weight: 600;
@@ -131,6 +139,75 @@
   background-color: transparent;
   color: #fff;
   width: 100px;
+}
+
+/* Small trainee indicator badge */
+.trainee-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  color: #111;
+  background-color: #f6c343; /* subtle amber */
+  border: 1px solid #5a4b00;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2) inset;
+  cursor: default;
+}
+
+/* Small trainer indicator badge */
+.trainer-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; /* a bit wider to fit 'TR' */
+  height: 16px;
+  border-radius: 999px; /* pill */
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #0b1a2b;
+  background-color: #4da3ff; /* blue */
+  border: 1px solid #1c5aa6;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2) inset;
+  cursor: default;
+}
+
+/* Trainer reference pill for trainees (e.g., TR: KLOR) */
+.trainer-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #0b1a2b;
+  background-color: #4da3ff;
+  border: 1px solid #1c5aa6;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2) inset;
+}
+
+/* Trainee reference pill shown on trainer cards (e.g., T: JDUK — DUKES) */
+.trainee-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #111;
+  background-color: #f6c343; /* amber */
+  border: 1px solid #5a4b00;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2) inset;
 }
 
 .dispatcher-name-input {

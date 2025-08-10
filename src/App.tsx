@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './styles/App.css';
 import './styles/layout.css';
 import './styles/manage-dispatchers.css';
-import { days, Day, Schedule, TimeSlot, Column } from './constants';
+import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots } from './constants';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { ExtendedDispatcher } from './types';
 import ManageDispatchers from './components/ManageDispatchers';
@@ -10,7 +12,6 @@ import ScheduleTable from './components/ScheduleTable';
 import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './scheduleUtils';
 import { generateWeeklySchedule } from './solver/weekScheduler';
 import { countSlotsPerDispatcher } from './solver/utils/scheduleUtils';
-import { isSlotInShift } from './solver/utils/shiftUtils';
 
 const MAX_HISTORY = 50;
 
@@ -33,6 +34,137 @@ function App() {
     });
   };
 
+  // --- Export to CSV helpers ---
+  const csvQuote = (val: string) => '"' + (val ?? '').replace(/"/g, '""') + '"';
+
+  const buildCSVForWeek = (sched: Schedule): string => {
+    // Day-separated blocks. For each day:
+    //  - Row 1: headers with Day name in the top-left cell (e.g., [Monday, SW, CE, ...])
+    //  - Rows : first column are times, followed by assignments
+    //  - Blank line between days for a clean break
+    const lines: string[] = [];
+    days.forEach((d, idx) => {
+      if (idx > 0) lines.push(''); // separator blank line
+      // Header row with Day in A1
+      const dayHeader = [d, ...columns];
+      lines.push(dayHeader.map(csvQuote).join(','));
+      // Data rows
+      timeSlots.forEach((slot) => {
+        const row = [slot, ...columns.map((c) => sched[d][slot][c] || '')];
+        lines.push(row.map(csvQuote).join(','));
+      });
+    });
+    return lines.join('\n');
+  };
+
+  const buildCSVForDay = (sched: Schedule, day: Day): string => {
+    // Header row with Day in A1
+    const lines: string[] = [ [day, ...columns].map(csvQuote).join(',') ];
+    // Data rows
+    timeSlots.forEach((slot) => {
+      const row = [slot, ...columns.map((c) => sched[day][slot][c] || '')];
+      lines.push(row.map(csvQuote).join(','));
+    });
+    return lines.join('\n');
+  };
+
+  const downloadCSV = (fileName: string, csv: string) => {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportWeek = () => {
+    const csv = buildCSVForWeek(schedule);
+    const ts = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const file = `radioschedule-week-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.csv`;
+    downloadCSV(file, csv);
+  };
+
+  const handleExportDay = () => {
+    const csv = buildCSVForDay(schedule, selectedDay);
+    const ts = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const file = `radioschedule-${selectedDay}-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.csv`;
+    downloadCSV(file, csv);
+  };
+
+  // --- Export Week to PDF (Mon-Thu on page 1; Fri-Sun on page 2) ---
+  const handleExportWeekPDF = () => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 36; // half-inch margins
+    const spacing = 12; // tighter space between day tables
+
+    // Column widths: time a bit wider, others equal to fit width
+    const available = pageWidth - margin * 2;
+    const timeCol = 70;
+    const channelCount = columns.length; // 8
+    const restWidth = available - timeCol;
+    const channelCol = Math.max(50, Math.floor(restWidth / channelCount));
+
+    const makeDayTable = (day: Day, startY: number) => {
+      // Day title centered above table
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      const title = String(day);
+      const titleWidth = doc.getTextWidth(title);
+      doc.text(title, margin + (available - titleWidth) / 2, startY);
+
+      autoTable(doc, {
+        startY: startY + 12,
+        margin: { left: margin, right: margin },
+        head: [[ 'Time', ...columns ]],
+        body: timeSlots.map((slot) => [ slot, ...columns.map((c) => schedule[day][slot][c] || '') ]),
+        styles: {
+          halign: 'center',
+          valign: 'middle',
+          fontSize: 8,
+          cellPadding: 1,
+        },
+        headStyles: {
+          halign: 'center',
+          fillColor: [230, 230, 230],
+          textColor: 20,
+          fontStyle: 'bold',
+        },
+        columnStyles: Object.fromEntries(
+          [0, ...columns.map((_, i) => i + 1)].map((idx) => [idx, { cellWidth: idx === 0 ? timeCol : channelCol }])
+        ) as any,
+        tableWidth: available,
+      });
+
+      // Return bottom Y
+      // @ts-ignore
+      return (doc.lastAutoTable?.finalY ?? (startY + 12)) + spacing;
+    };
+
+    let y = margin;
+    // First 4 days on page 1
+    days.slice(0, 4).forEach((d, i) => {
+      y = makeDayTable(d, i === 0 ? y : y);
+    });
+
+    // New page for remaining 3 days
+    doc.addPage();
+    y = margin;
+    days.slice(4).forEach((d, i) => {
+      y = makeDayTable(d, i === 0 ? y : y);
+    });
+
+    const ts = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const file = `radioschedule-week-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.pdf`;
+    doc.save(file);
+  };
+
   const undoLast = () => {
     setHistory((h) => {
       if (h.length === 0) return h;
@@ -43,8 +175,14 @@ function App() {
   };
 
   // Normalize loaded dispatchers (badge string -> number, wantsExtraRadio -> minimumRadioOnly, defaults)
-  const normalizeDispatcher = (d: any): ExtendedDispatcher => {
-    const copy: any = { ...d };
+  type LegacyDispatcher = Omit<ExtendedDispatcher, 'badgeNumber' | 'minimumRadioOnly'> & {
+    badgeNumber?: number | string;
+    wantsExtraRadio?: boolean;
+    minimumRadioOnly?: boolean;
+  };
+
+  const normalizeDispatcher = useCallback((d: LegacyDispatcher): ExtendedDispatcher => {
+    const copy: LegacyDispatcher = { ...d };
     // Normalize badgeNumber from strings like "D3045" or numeric strings
     if (typeof copy.badgeNumber === 'string') {
       const m = copy.badgeNumber.match(/\d+/);
@@ -57,19 +195,101 @@ function App() {
       delete copy.wantsExtraRadio;
     }
     if (typeof copy.minimumRadioOnly !== 'boolean') copy.minimumRadioOnly = false;
+    // Defensive: if not a trainee, ensure trainee linkage fields are cleared
+    if (copy.isTrainee !== true) {
+      copy.traineeOf = undefined;
+      copy.followTrainerSchedule = false;
+    }
     return copy as ExtendedDispatcher;
-  };
+  }, []);
+
+  // Compute and normalize seniority ranks (1 = most senior).
+  // - Preserves CSV/manual seniority values when unique
+  // - Resolves duplicates deterministically by bumping to next available number
+  // - Assigns missing seniority sequentially after the max used value
+  // Does not reorder the returned list; only updates the `seniority` field where needed.
+  const computeSeniority = useCallback((list: ExtendedDispatcher[]): ExtendedDispatcher[] => {
+    if (!Array.isArray(list) || list.length === 0) return list;
+
+    const numBadge = (d: ExtendedDispatcher): number => {
+      const raw: any = (d as any).badgeNumber;
+      if (typeof raw === 'number' && !Number.isNaN(raw)) return raw;
+      if (typeof raw === 'string') {
+        const m = raw.match(/\d+/);
+        if (m) return parseInt(m[0], 10);
+      }
+      const idm = String(d.id || '').match(/\d+/);
+      return idm ? parseInt(idm[0], 10) : Number.POSITIVE_INFINITY;
+    };
+
+    const senVal = (d: ExtendedDispatcher): number => {
+      const s: any = (d as any).seniority;
+      return typeof s === 'number' && !Number.isNaN(s) ? s : Number.POSITIVE_INFINITY;
+    };
+
+    // Stable order for dedupe: by existing seniority asc, then badge asc, then id
+    const ordered = [...list].sort((a, b) => {
+      const sa = senVal(a), sb = senVal(b);
+      if (sa !== sb) return sa - sb;
+      const ba = numBadge(a), bb = numBadge(b);
+      if (ba !== bb) return ba - bb;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+
+    // Determine starting point for filling in new numbers
+    let maxSeen = 0;
+    for (const d of ordered) {
+      const s: any = (d as any).seniority;
+      if (typeof s === 'number' && !Number.isNaN(s) && s > maxSeen) maxSeen = s;
+    }
+    const used = new Set<number>();
+    let next = maxSeen + 1;
+
+    // Compute new seniority assignments without mutating original list
+    const newSenById = new Map<string, number>();
+    for (const d of ordered) {
+      const s: any = (d as any).seniority;
+      if (typeof s === 'number' && !Number.isNaN(s)) {
+        // Keep if unique; otherwise bump to next available
+        let target = s;
+        while (used.has(target)) target++;
+        used.add(target);
+        if (target !== s) newSenById.set(d.id, target);
+      } else {
+        // Missing seniority: assign sequentially after max
+        while (used.has(next)) next++;
+        newSenById.set(d.id, next);
+        used.add(next);
+        next++;
+      }
+    }
+
+    // Apply changes in original order only where needed
+    let changed = false;
+    const result = list.map((d) => {
+      const assigned = newSenById.get(d.id);
+      if (assigned == null) return d;
+      const current: any = (d as any).seniority;
+      if (current !== assigned) {
+        changed = true;
+        return { ...d, seniority: assigned } as ExtendedDispatcher;
+      }
+      return d;
+    });
+    return changed ? result : list;
+  }, []);
 
   // Load dispatchers on mount
   useEffect(() => {
     const loadDispatchersAsync = async () => {
       const loadedDispatchers = await loadDispatchers();
-      const normalized = (loadedDispatchers || []).map(normalizeDispatcher);
-      setDispatchers(normalized as ExtendedDispatcher[]);
+      const normalized = (loadedDispatchers || []).map(normalizeDispatcher) as ExtendedDispatcher[];
+      const ranked = computeSeniority(normalized);
+      setDispatchers(ranked);
       setDispatchersLoaded(true);
     };
     loadDispatchersAsync();
-  }, []);
+  }, [normalizeDispatcher, computeSeniority]);
 
   // Save schedule 
   useEffect(() => {
@@ -82,6 +302,16 @@ function App() {
       saveDispatchers(dispatchers);
     }
   }, [dispatchers, dispatchersLoaded]);
+
+  // Keep seniority updated whenever dispatchers change (e.g., badge edits, add/remove)
+  useEffect(() => {
+    if (!dispatchersLoaded || dispatchers.length === 0) return;
+    const ranked = computeSeniority(dispatchers);
+    // Only update state if something changed (computeSeniority returns same array if no change)
+    if (ranked !== dispatchers) {
+      setDispatchers(ranked);
+    }
+  }, [dispatchers, dispatchersLoaded, computeSeniority]);
 
   // Calculate slot counts when schedule or dispatchers change
   useEffect(() => {
@@ -96,91 +326,11 @@ function App() {
 
   const handleChange = (
     day: Day,
-    time: keyof Schedule[Day],
-    column: keyof Schedule[Day][keyof Schedule[Day]],
+    time: TimeSlot,
+    column: Column,
     value: string,
   ) => {
-    // Allow clearing always
-    if (!value) {
-      applyScheduleUpdate((prev) => ({
-        ...prev,
-        [day]: {
-          ...prev[day],
-          [time]: {
-            ...prev[day][time],
-            [column]: value,
-          },
-        },
-      }));
-      return;
-    }
-
-    const timeSlot = time as TimeSlot;
-    const col = column as Column;
-
-    // Resolve participants from label(s) (supports "TRAINER/TRAINEE")
-    const parts = value.includes('/') ? value.split('/').map(s => s.trim()).filter(Boolean) : [value.trim()];
-    const findByLabel = (label: string) => dispatchers.find(d => d.id === label || d.name === label);
-    const participants = parts.map(findByLabel).filter((d): d is ExtendedDispatcher => !!d);
-
-    // Basic sanity: unknown label -> allow write so user can correct; no hard crash
-    if (participants.length === 0) {
-      applyScheduleUpdate((prev) => ({
-        ...prev,
-        [day]: {
-          ...prev[day],
-          [time]: {
-            ...prev[day][time],
-            [column]: value,
-          },
-        },
-      }));
-      return;
-    }
-
-    // 1) Prevent duplicate assignment in the same time slot across columns
-    const row = schedule[day][timeSlot];
-    const isDup = participants.some((p) => {
-      const key = p.name || p.id;
-      return Object.entries(row).some(([c, cell]) => {
-        if (c === (col as string)) return false; // ignore current cell
-        if (!cell) return false;
-        const cells = cell.split('/').map(s => s.trim()).filter(Boolean);
-        return cells.includes(key);
-      });
-    });
-    if (isDup) {
-      window.alert('Duplicate assignment: This person is already assigned in this time slot.');
-      return;
-    }
-
-    // 2) Prevent assigning on non-work days or outside shift hours
-    const trainer = participants[0];
-    const trainee = participants.length > 1 ? participants[1] : undefined;
-    const violatesDayOrShift = participants.some((person) => {
-      // Effective work days (trainee may follow trainer)
-      let effectiveDays = person.workDays;
-      if (person === trainee && person.followTrainerSchedule && trainer) {
-        effectiveDays = trainer.workDays;
-      }
-      const dayOk = !effectiveDays || effectiveDays.length === 0 || effectiveDays.includes(day);
-
-      // Effective shift
-      let shiftOk = true;
-      if (person === trainee && person.followTrainerSchedule && trainer && trainer.shift) {
-        shiftOk = isSlotInShift({ ...person, shift: trainer.shift }, timeSlot);
-      } else {
-        shiftOk = isSlotInShift(person, timeSlot);
-      }
-
-      return !(dayOk && shiftOk);
-    });
-    if (violatesDayOrShift) {
-      window.alert('Invalid assignment: Person does not work this day or this time is outside their shift.');
-      return;
-    }
-
-    // Passed validation: apply change
+    // Always apply the change. Validation is visual (red/yellow) in ScheduleTable.getCellStatus().
     applyScheduleUpdate((prev) => ({
       ...prev,
       [day]: {
@@ -214,6 +364,15 @@ function App() {
             setSolving(false);
           }}>
             {solving ? 'Generating...' : 'Auto Schedule'}
+          </button>
+          <button onClick={handleExportDay}>
+            Export Day CSV
+          </button>
+          <button onClick={handleExportWeek}>
+            Export Week CSV
+          </button>
+          <button onClick={handleExportWeekPDF}>
+            Export Week PDF
           </button>
         </>
       )}

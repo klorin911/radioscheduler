@@ -14,7 +14,7 @@ const warn = (...args: unknown[]) => { if (DEBUG) console.warn(...args); };
  * 
  * SCHEDULING RULES:
  * 1. Every dispatcher gets at least one slot per day
- * 2. Assignments respect dispatcher seniority (lower badge number = higher priority)
+ * 2. Assignments respect dispatcher seniority number (lower rank = more senior; 1 = most senior)
  * 3. Shift-based slot assignment (dispatchers assigned within their shift hours when possible)
  * 4. Preference handling for channels and time blocks
  * 5. Tooltip consistency (store dispatcher.name || dispatcher.id)

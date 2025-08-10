@@ -9,6 +9,19 @@ const DEBUG = false;
 const log = (...args: unknown[]) => { if (DEBUG) console.log(...args); };
 const warn = (...args: unknown[]) => { if (DEBUG) console.warn(...args); };
 
+// Seniority sort key (lower value = higher seniority)
+function getSenioritySortKey(d: ExtendedDispatcher): number {
+  const s: unknown = (d as any).seniority;
+  if (typeof s === 'number' && !Number.isNaN(s)) return s;
+  if (typeof d.badgeNumber === 'number' && !Number.isNaN(d.badgeNumber)) return d.badgeNumber;
+  const raw: unknown = (d as any).badgeNumber;
+  if (typeof raw === 'string') {
+    const m = raw.match(/\d+/);
+    if (m) return parseInt(m[0], 10);
+  }
+  return extractBadgeNumber(d.id);
+}
+
 /**
  * Assigns exactly one UT slot per dispatcher per work week
  * This is called after all regular scheduling is complete
@@ -43,11 +56,7 @@ export function assignUTSlots(
   // Sort dispatchers by seniority for UT assignment priority
   const sortedDispatchers = [...dispatchers]
     .filter(d => d.workDays && d.workDays.length > 0 && !d.excludeFromAutoSchedule && !(d.isTrainee || d.traineeOf)) // Exclude trainees entirely
-    .sort((a, b) => {
-      const badgeA = extractBadgeNumber(a.id);
-      const badgeB = extractBadgeNumber(b.id);
-      return badgeA - badgeB; // Lower badge number = higher seniority
-    });
+    .sort((a, b) => getSenioritySortKey(a) - getSenioritySortKey(b));
   
   // Assign exactly one UT slot to each dispatcher
   assignPrimaryUTSlots(weekSchedule, sortedDispatchers, utAssignments);
@@ -136,11 +145,7 @@ function assignFallbackUTSlots(
   }
 
   // Sort dispatchers by seniority (should already be sorted, but just to be safe)
-  const sortedMissing = [...missingDispatchers].sort((a, b) => {
-    const badgeA = extractBadgeNumber(a.id);
-    const badgeB = extractBadgeNumber(b.id);
-    return badgeA - badgeB;
-  });
+  const sortedMissing = [...missingDispatchers].sort((a, b) => getSenioritySortKey(a) - getSenioritySortKey(b));
 
   // Try to assign one UT slot to each missing dispatcher
   for (const dispatcher of sortedMissing) {

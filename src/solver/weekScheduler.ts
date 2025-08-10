@@ -25,7 +25,6 @@ export async function generateWeeklySchedule(
   assignUTSlots(normalized, dispatchers);
   // Replace newSchedule with normalized (mutated by UT assignment)
   (Object.keys(normalized) as Array<keyof Schedule>).forEach((d) => {
-    // @ts-expect-error index type
     newSchedule[d] = normalized[d];
   });
   

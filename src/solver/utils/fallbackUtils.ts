@@ -29,8 +29,8 @@ export function applyRoundRobinFallback(
   
   timeSlots.forEach((slot) => {
     let dispatcherIndex = 0;
-    // Exclude UT from fallback; UT is handled by weekly UT assignment util
-    columns.filter((c) => c !== 'UT').forEach((col) => {
+    // Exclude UT and RELIEF from fallback; UT handled by weekly util and RELIEF is manual-only
+    columns.filter((c) => c !== 'UT' && c !== 'RELIEF').forEach((col) => {
       if (dispatcherIndex < availableDispatchers.length) {
         const dispatcher = availableDispatchers[dispatcherIndex];
         fallbackSchedule[slot][col] = dispatcher.id;
@@ -92,8 +92,8 @@ export function applyShiftAwareFallback(
       }
     });
 
-    // Assign across non-UT columns
-    columns.filter(c => c !== 'UT').forEach((col) => {
+    // Assign across non-UT and non-RELIEF columns
+    columns.filter(c => c !== 'UT' && c !== 'RELIEF').forEach((col) => {
       // Skip if locked already
       if (fallbackSchedule[slot][col] && fallbackSchedule[slot][col].trim().length > 0) return;
 

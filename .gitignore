@@ -55,3 +55,6 @@ dispatchers.json
 # Application specific
 # Add any sensitive config files or local storage here
 # Example: config/local.json
+
+# Local spreadsheets (do not track)
+DISPATCHERS - Sheet1.csv

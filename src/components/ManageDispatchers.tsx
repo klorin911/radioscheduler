@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ExtendedDispatcher } from '../types';
 import '../styles/manage-dispatchers.css';
 
@@ -16,6 +16,20 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
   const [newName, setNewName] = useState('');
   const [newBadge, setNewBadge] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Normalize legacy data: remove any 'RELIEF' entries from preferredChannels
+  useEffect(() => {
+    let changed = false;
+    const updated = dispatchers.map(d => {
+      const pc = d.preferredChannels || [];
+      if (pc.includes('RELIEF')) {
+        changed = true;
+        return { ...d, preferredChannels: pc.filter(ch => ch !== 'RELIEF') };
+      }
+      return d;
+    });
+    if (changed) onChange(updated);
+  }, [dispatchers, onChange]);
 
   // Filter dispatchers based on search term
   const filteredDispatchers = useMemo(() => {
@@ -180,6 +194,9 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
         {filteredDispatchers.map((d, filteredIndex) => {
           // Find the original index in the full dispatchers array
           const originalIndex = dispatchers.findIndex(dispatcher => dispatcher.id === d.id);
+          // Determine if this dispatcher is a trainer (has at least one trainee linked)
+          const traineesOf = dispatchers.filter((p) => p.isTrainee === true && p.traineeOf === d.id);
+          const isTrainer = traineesOf.length > 0;
           return (
             <div key={d.id} className="dispatcher-card">
             {/* Card Header */}
@@ -197,6 +214,51 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                     className="dispatcher-id-input"
                     placeholder="Short Name (e.g., KLOR)"
                   />
+                  {isTrainer ? (
+                    <span
+                      className="trainer-indicator"
+                      title="Trainer"
+                      aria-label="Trainer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      TR
+                    </span>
+                  ) : null}
+                  {isTrainer && traineesOf.length > 0 && (
+                    <>
+                      {traineesOf.map((t) => (
+                        <span
+                          key={`trainee-ref-${t.id}`}
+                          className="trainee-ref-badge"
+                          title={`Trainee: ${t.id} — ${t.name}`}
+                          aria-label={`Trainee: ${t.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          T: {t.id} — {t.name}
+                        </span>
+                      ))}
+                    </>
+                  )}
+                  {d.isTrainee ? (
+                    <span
+                      className="trainee-indicator"
+                      title="Trainee"
+                      aria-label="Trainee"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      T
+                    </span>
+                  ) : null}
+                  {d.isTrainee && d.traineeOf ? (
+                    <span
+                      className="trainer-ref-badge"
+                      title={`Trainer: ${d.traineeOf}${(() => { const t = dispatchers.find(p => p.id === d.traineeOf); return t ? ` — ${t.name}` : '' })()}`}
+                      aria-label={`Trainer: ${d.traineeOf}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {(() => { const t = dispatchers.find(p => p.id === d.traineeOf); return `TR: ${d.traineeOf}${t ? ` — ${t.name}` : ''}` })()}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="dispatcher-name-section">
                   <label>Name:</label>
@@ -261,7 +323,19 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                       <input
                         type="checkbox"
                         checked={d.isTrainee || false}
-                        onChange={(e) => update(originalIndex, 'isTrainee', e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          if (checked) {
+                            update(originalIndex, 'isTrainee', true);
+                          } else {
+                            // When turning off trainee status, also clear trainer linkage and follow flag
+                            const copy = [...dispatchers];
+                            copy[originalIndex].isTrainee = false;
+                            copy[originalIndex].traineeOf = undefined;
+                            copy[originalIndex].followTrainerSchedule = false;
+                            onChange(copy);
+                          }
+                        }}
                       />
                       <span className="checkmark"></span>
                       <span className="checkbox-label">Trainee</span>
@@ -273,7 +347,10 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         <label>Trainer:</label>
                         <select
                           value={d.traineeOf || ''}
-                          onChange={(e) => update(originalIndex, 'traineeOf', e.target.value || undefined as any)}
+                          onChange={(e) => {
+                            const v = e.target.value.trim().toUpperCase();
+                            update(originalIndex, 'traineeOf', v ? v : undefined);
+                          }}
                           onClick={(e) => e.stopPropagation()}
                           className="trainer-select"
                         >
@@ -338,7 +415,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                     <div className="channels-column">
                       <div className="section-subtitle">Ranked Preferences</div>
                       <div className="ranked-channels">
-                        {(d.preferredChannels || []).map((channel, idx) => (
+                        {(d.preferredChannels || []).filter(ch => ch !== 'RELIEF').map((channel, idx) => (
                           <div key={channel} className="ranked-channel-item">
                             <span className="channel-rank">#{idx + 1}</span>
                             <span className="channel-name">{channel}</span>
