@@ -1,7 +1,7 @@
 {
   "name": "electron-vite-project",
   "private": true,
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,9 +11,9 @@
     "build:linux": "tsc && vite build && electron-builder --linux AppImage deb",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "publish": "tsc && vite build && electron-builder -p onTagOrDraft",
-    "publish:mac": "tsc && vite build && electron-builder --mac -p onTagOrDraft",
-    "publish:win": "tsc && vite build && electron-builder --win -p onTagOrDraft"
+    "publish": "tsc && vite build && electron-builder --publish=always",
+    "publish:mac": "tsc && vite build && electron-builder --mac --publish=always",
+    "publish:win": "tsc && vite build && electron-builder --win --publish=always"
   },
   "dependencies": {
     "electron-updater": "^6.1.7",
@@ -61,7 +61,7 @@
         "provider": "github",
         "owner": "klorin911",
         "repo": "radioscheduler",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ],
     "mac": {
