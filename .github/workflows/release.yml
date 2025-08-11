@@ -9,11 +9,13 @@ jobs:
   build-and-publish:
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-14, windows-latest]
     runs-on: ${{ matrix.os }}
     
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
       
     steps:
       - name: Checkout
@@ -27,15 +29,20 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      
+      - name: Verify GH_TOKEN present
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_TOKEN is empty"; exit 1
+          else
+            echo "GH_TOKEN is set"
+          fi
+        shell: bash
 
       - name: Build and publish (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-14'
         run: npm run publish:mac
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Build and publish (Windows)
         if: matrix.os == 'windows-latest'
         run: npm run publish:win
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
