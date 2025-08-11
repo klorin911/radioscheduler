@@ -51,6 +51,7 @@ Thumbs.db
 
 # Application data files (sensitive)
 dispatchers.json
+!electron/resources/dispatchers.json
 
 # Application specific
 # Add any sensitive config files or local storage here
