@@ -26,8 +26,6 @@ function App() {
     () => Object.fromEntries(days.map((d) => [d, {}])) as Record<Day, Record<string, number>>
   );
   const [history, setHistory] = useState<Schedule[]>([]);
-  const [updateStatus, setUpdateStatus] = useState<string>('idle');
-  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
   const applyScheduleUpdate = (producer: (prev: Schedule) => Schedule) => {
     setSchedule((prev) => {
@@ -124,13 +122,13 @@ function App() {
         },
         columnStyles: Object.fromEntries(
           [0, ...columns.map((_, i) => i + 1)].map((idx) => [idx, { cellWidth: idx === 0 ? timeCol : channelCol }])
-        ) as any,
+        ) as Record<number, { cellWidth: number }>,
         tableWidth: available,
       });
 
       // Return bottom Y
-      // @ts-ignore
-      return (doc.lastAutoTable?.finalY ?? (startY + 12)) + spacing;
+      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? (startY + 12);
+      return lastY + spacing;
     };
 
     let y = margin;
@@ -199,18 +197,15 @@ function App() {
     if (!Array.isArray(list) || list.length === 0) return list;
 
     const numBadge = (d: ExtendedDispatcher): number => {
-      const raw: any = (d as any).badgeNumber;
+      const raw = d.badgeNumber;
       if (typeof raw === 'number' && !Number.isNaN(raw)) return raw;
-      if (typeof raw === 'string') {
-        const m = raw.match(/\d+/);
-        if (m) return parseInt(m[0], 10);
-      }
+      // Fallback: extract digits from ID if present
       const idm = String(d.id || '').match(/\d+/);
       return idm ? parseInt(idm[0], 10) : Number.POSITIVE_INFINITY;
     };
 
     const senVal = (d: ExtendedDispatcher): number => {
-      const s: any = (d as any).seniority;
+      const s = d.seniority;
       return typeof s === 'number' && !Number.isNaN(s) ? s : Number.POSITIVE_INFINITY;
     };
 
@@ -226,7 +221,7 @@ function App() {
     // Determine starting point for filling in new numbers
     let maxSeen = 0;
     for (const d of ordered) {
-      const s: any = (d as any).seniority;
+      const s = d.seniority;
       if (typeof s === 'number' && !Number.isNaN(s) && s > maxSeen) maxSeen = s;
     }
     const used = new Set<number>();
@@ -235,7 +230,7 @@ function App() {
     // Compute new seniority assignments without mutating original list
     const newSenById = new Map<string, number>();
     for (const d of ordered) {
-      const s: any = (d as any).seniority;
+      const s = d.seniority;
       if (typeof s === 'number' && !Number.isNaN(s)) {
         // Keep if unique; otherwise bump to next available
         let target = s;
@@ -256,7 +251,7 @@ function App() {
     const result = list.map((d) => {
       const assigned = newSenById.get(d.id);
       if (assigned == null) return d;
-      const current: any = (d as any).seniority;
+      const current = d.seniority;
       if (current !== assigned) {
         changed = true;
         return { ...d, seniority: assigned } as ExtendedDispatcher;
@@ -311,23 +306,23 @@ function App() {
     }
   }, [schedule, dispatchers]);
 
-  // Listen for updater events from main
+  // Listen for menu events from main
   useEffect(() => {
-    const onStatus = (_e: any, payload: any) => {
-      if (!payload) return;
-      setUpdateStatus(payload.status || '');
+    const onExportCSV = () => {
+      handleExportWeek();
     };
-    const onProgress = (_e: any, progress: any) => {
-      const percent = typeof progress?.percent === 'number' ? progress.percent : null;
-      setDownloadProgress(percent);
+    const onExportPDF = () => {
+      handleExportWeekPDF();
     };
-    window.ipcRenderer?.on('updater:status', onStatus);
-    window.ipcRenderer?.on('updater:progress', onProgress);
+    
+    window.ipcRenderer?.on('menu:export-csv', onExportCSV);
+    window.ipcRenderer?.on('menu:export-pdf', onExportPDF);
+    
     return () => {
-      window.ipcRenderer?.off('updater:status', onStatus);
-      window.ipcRenderer?.off('updater:progress', onProgress);
+      window.ipcRenderer?.off('menu:export-csv', onExportCSV);
+      window.ipcRenderer?.off('menu:export-pdf', onExportPDF);
     };
-  }, []);
+  }, [handleExportWeek, handleExportWeekPDF]);
 
   const handleChange = (
     day: Day,
@@ -370,27 +365,7 @@ function App() {
           }}>
             {solving ? 'Generating...' : 'Auto Schedule'}
           </button>
-          {/* Export Day CSV removed */}
-          <button onClick={handleExportWeek}>
-            Export Week CSV
-          </button>
-          <button onClick={handleExportWeekPDF}>
-            Export Week PDF
-          </button>
-          {/* Updater controls */}
-          <button onClick={() => window.updaterAPI?.check?.() || window.ipcRenderer?.invoke('updater:check')}>
-            Check for Updates
-          </button>
-          <button
-            onClick={() => window.updaterAPI?.install?.() || window.ipcRenderer?.invoke('updater:install')}
-            disabled={updateStatus !== 'downloaded'}
-          >
-            Install Update
-          </button>
-          <span style={{ marginLeft: 8, fontSize: 12 }}>
-            Status: {updateStatus}
-            {downloadProgress != null ? ` • ${downloadProgress.toFixed(0)}%` : ''}
-          </span>
+
         </>
       )}
 

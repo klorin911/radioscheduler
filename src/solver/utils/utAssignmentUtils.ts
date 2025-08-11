@@ -11,10 +11,10 @@ const warn = (...args: unknown[]) => { if (DEBUG) console.warn(...args); };
 
 // Seniority sort key (lower value = higher seniority)
 function getSenioritySortKey(d: ExtendedDispatcher): number {
-  const s: unknown = (d as any).seniority;
+  const s = d.seniority;
   if (typeof s === 'number' && !Number.isNaN(s)) return s;
   if (typeof d.badgeNumber === 'number' && !Number.isNaN(d.badgeNumber)) return d.badgeNumber;
-  const raw: unknown = (d as any).badgeNumber;
+  const raw: unknown = (d as unknown as { badgeNumber?: unknown }).badgeNumber;
   if (typeof raw === 'string') {
     const m = raw.match(/\d+/);
     if (m) return parseInt(m[0], 10);

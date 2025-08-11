@@ -16,8 +16,8 @@ const log = (...args: unknown[]) => { if (DEBUG) console.log(...args); };
  */
 function getSeniorityRank(d: ExtendedDispatcher): number {
   // Prefer explicit seniority rank if present
-  if (typeof (d as any).seniority === 'number' && !Number.isNaN((d as any).seniority)) {
-    return (d as any).seniority as number;
+  if (typeof d.seniority === 'number' && !Number.isNaN(d.seniority)) {
+    return d.seniority;
   }
   // Prefer numeric badgeNumber if available
   if (typeof d.badgeNumber === 'number' && !Number.isNaN(d.badgeNumber)) {

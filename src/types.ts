@@ -53,10 +53,10 @@ declare global {
     updaterAPI?: {
       check: () => Promise<boolean>;
       install: () => Promise<boolean>;
-      onStatus?: (listener: (payload: any) => void) => void;
-      offStatus?: (listener: (event: any, ...args: any[]) => void) => void;
-      onProgress?: (listener: (progress: any) => void) => void;
-      offProgress?: (listener: (event: any, ...args: any[]) => void) => void;
+      onStatus?: (listener: (payload: { status?: string; info?: unknown; error?: string }) => void) => void;
+      offStatus?: (listener: (payload: { status?: string; info?: unknown; error?: string }) => void) => void;
+      onProgress?: (listener: (progress: { percent?: number }) => void) => void;
+      offProgress?: (listener: (progress: { percent?: number }) => void) => void;
     };
     dispatcherAPI?: {
       getDispatchers: () => Promise<Dispatcher[]>;

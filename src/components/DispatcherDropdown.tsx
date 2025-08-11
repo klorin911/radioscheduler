@@ -96,7 +96,7 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       setIsOpen(false);
       event.preventDefault();
     }
-  }, [isTyping, typingValue, dispatchers, handleSelect, day, timeSlot, column]);
+  }, [isTyping, typingValue, dispatchers, handleSelect, column]);
 
   // Handle keyboard input for typing
   useEffect(() => {

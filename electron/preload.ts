@@ -35,12 +35,48 @@ contextBridge.exposeInMainWorld('dispatcherAPI', {
   saveDispatchers: (data: Dispatcher[]): Promise<boolean> => ipcRenderer.invoke('save-dispatchers', data),
 })
 
+// Keep maps of wrapped listeners so we can remove the exact same fn reference later
+const statusListenerMap = new Map<
+  (payload: { status?: string; info?: unknown; error?: string }) => void,
+  IpcListener
+>();
+const progressListenerMap = new Map<
+  (progress: { percent?: number }) => void,
+  IpcListener
+>();
+
 // Expose updater operations
 contextBridge.exposeInMainWorld('updaterAPI', {
   check: (): Promise<boolean> => ipcRenderer.invoke('updater:check'),
   install: (): Promise<boolean> => ipcRenderer.invoke('updater:install'),
-  onStatus: (listener: (payload: any) => void) => ipcRenderer.on('updater:status', (_e: IpcRendererEvent, payload: any) => listener(payload)),
-  offStatus: (listener: IpcListener) => ipcRenderer.off('updater:status', listener),
-  onProgress: (listener: (progress: any) => void) => ipcRenderer.on('updater:progress', (_e: IpcRendererEvent, progress: any) => listener(progress)),
-  offProgress: (listener: IpcListener) => ipcRenderer.off('updater:progress', listener),
+  onStatus: (listener: (payload: { status?: string; info?: unknown; error?: string }) => void) => {
+    const wrapped: IpcListener = (_e: IpcRendererEvent, ...args: unknown[]) => {
+      const payload = (args[0] ?? {}) as { status?: string; info?: unknown; error?: string }
+      listener(payload)
+    }
+    statusListenerMap.set(listener, wrapped)
+    ipcRenderer.on('updater:status', wrapped)
+  },
+  offStatus: (listener: (payload: { status?: string; info?: unknown; error?: string }) => void) => {
+    const wrapped = statusListenerMap.get(listener)
+    if (wrapped) {
+      ipcRenderer.off('updater:status', wrapped)
+      statusListenerMap.delete(listener)
+    }
+  },
+  onProgress: (listener: (progress: { percent?: number }) => void) => {
+    const wrapped: IpcListener = (_e: IpcRendererEvent, ...args: unknown[]) => {
+      const progress = (args[0] ?? {}) as { percent?: number }
+      listener(progress)
+    }
+    progressListenerMap.set(listener, wrapped)
+    ipcRenderer.on('updater:progress', wrapped)
+  },
+  offProgress: (listener: (progress: { percent?: number }) => void) => {
+    const wrapped = progressListenerMap.get(listener)
+    if (wrapped) {
+      ipcRenderer.off('updater:progress', wrapped)
+      progressListenerMap.delete(listener)
+    }
+  },
 })

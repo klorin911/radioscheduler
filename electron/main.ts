@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import type { Dispatcher } from '../src/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -19,6 +20,132 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+let currentMenu: Menu | null = null
+let updateAvailable = false
+
+function updateMenu() {
+  createMenu()
+}
+
+function createMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'Radio Scheduler',
+      submenu: [
+        {
+          label: 'About Radio Scheduler',
+          role: 'about'
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates',
+          click: async () => {
+            try {
+              await autoUpdater.checkForUpdates()
+            } catch (error) {
+              console.error('Error checking for updates:', error)
+            }
+          }
+        },
+        {
+          label: 'Install Update',
+          enabled: updateAvailable,
+          click: () => {
+            autoUpdater.quitAndInstall()
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Hide Radio Scheduler',
+          accelerator: 'Command+H',
+          role: 'hide'
+        },
+        {
+          label: 'Hide Others',
+          accelerator: 'Command+Shift+H',
+          role: 'hideOthers'
+        },
+        {
+          label: 'Show All',
+          role: 'unhide'
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: 'Command+Q',
+          click: () => {
+            app.quit()
+          }
+        }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Export Week CSV',
+          accelerator: 'Command+E',
+          click: () => {
+            win?.webContents.send('menu:export-csv')
+          }
+        },
+        {
+          label: 'Export Week PDF',
+          accelerator: 'Command+Shift+E',
+          click: () => {
+            win?.webContents.send('menu:export-pdf')
+          }
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Reload', accelerator: 'CmdOrCtrl+R', role: 'reload' },
+        { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', role: 'forceReload' },
+        { label: 'Toggle Developer Tools', accelerator: 'F12', role: 'toggleDevTools' },
+        { type: 'separator' },
+        { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
+        { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
+        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
+        { type: 'separator' },
+        { label: 'Toggle Fullscreen', accelerator: 'Ctrl+Command+F', role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { label: 'Minimize', accelerator: 'CmdOrCtrl+M', role: 'minimize' },
+        { label: 'Close', accelerator: 'CmdOrCtrl+W', role: 'close' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About',
+          click: () => {
+            win?.webContents.send('menu:about')
+          }
+        }
+      ]
+    }
+  ]
+
+  currentMenu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(currentMenu)
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -47,7 +174,7 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
 
-  const send = (channel: string, payload?: any) => {
+  const send = (channel: string, payload?: unknown) => {
     try {
       win?.webContents.send(channel, payload)
     } catch (e) {
@@ -56,11 +183,25 @@ function setupAutoUpdater() {
   }
 
   autoUpdater.on('checking-for-update', () => send('updater:status', { status: 'checking' }))
-  autoUpdater.on('update-available', (info) => send('updater:status', { status: 'available', info }))
-  autoUpdater.on('update-not-available', (info) => send('updater:status', { status: 'not-available', info }))
+  autoUpdater.on('update-available', (info) => {
+    updateAvailable = false // Not ready to install yet
+    updateMenu()
+    send('updater:status', { status: 'available', info })
+  })
+  autoUpdater.on('update-not-available', (info) => {
+    updateAvailable = false
+    updateMenu()
+    send('updater:status', { status: 'not-available', info })
+  })
   autoUpdater.on('download-progress', (progress) => send('updater:progress', progress))
-  autoUpdater.on('error', (error) => send('updater:status', { status: 'error', error: String(error) }))
+  autoUpdater.on('error', (error) => {
+    updateAvailable = false
+    updateMenu()
+    send('updater:status', { status: 'error', error: String(error) })
+  })
   autoUpdater.on('update-downloaded', (info) => {
+    updateAvailable = true // Now ready to install
+    updateMenu()
     send('updater:status', { status: 'downloaded', info })
     // You may prompt user on renderer side, then call 'updater:install'
   })
@@ -74,6 +215,15 @@ function setupAutoUpdater() {
   ipcMain.handle('updater:install', async () => {
     autoUpdater.quitAndInstall()
     return true
+  })
+
+  // Menu IPC handlers
+  ipcMain.on('menu:export-csv', () => {
+    win?.webContents.send('menu:export-csv')
+  })
+
+  ipcMain.on('menu:export-pdf', () => {
+    win?.webContents.send('menu:export-pdf')
   })
 }
 
@@ -147,7 +297,7 @@ ipcMain.handle('get-dispatchers', async () => {
   }
 })
 
-ipcMain.handle('save-dispatchers', async (_, dispatchers) => {
+ipcMain.handle('save-dispatchers', async (_: unknown, dispatchers: Dispatcher[]) => {
   try {
     const filePath = getUserDataFilePath()
     const dirPath = path.dirname(filePath)
@@ -180,6 +330,7 @@ ipcMain.handle('save-dispatchers', async (_, dispatchers) => {
 })
 
 app.whenReady().then(() => {
+  createMenu()
   createWindow()
   setupAutoUpdater()
   // Only check in packaged builds to avoid dev spam
