@@ -1,9 +1,14 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Ensure a stable app name so userData path is predictable
+// In packaged builds electron-builder will also use productName
+app.setName('Radio Scheduler')
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 
@@ -37,6 +42,41 @@ function createWindow() {
   }
 }
 
+function setupAutoUpdater() {
+  // Configure updater behavior
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+
+  const send = (channel: string, payload?: any) => {
+    try {
+      win?.webContents.send(channel, payload)
+    } catch (e) {
+      // noop: window may be closed between events
+    }
+  }
+
+  autoUpdater.on('checking-for-update', () => send('updater:status', { status: 'checking' }))
+  autoUpdater.on('update-available', (info) => send('updater:status', { status: 'available', info }))
+  autoUpdater.on('update-not-available', (info) => send('updater:status', { status: 'not-available', info }))
+  autoUpdater.on('download-progress', (progress) => send('updater:progress', progress))
+  autoUpdater.on('error', (error) => send('updater:status', { status: 'error', error: String(error) }))
+  autoUpdater.on('update-downloaded', (info) => {
+    send('updater:status', { status: 'downloaded', info })
+    // You may prompt user on renderer side, then call 'updater:install'
+  })
+
+  // IPC handlers to control updates from renderer
+  ipcMain.handle('updater:check', async () => {
+    await autoUpdater.checkForUpdates()
+    return true
+  })
+
+  ipcMain.handle('updater:install', async () => {
+    autoUpdater.quitAndInstall()
+    return true
+  })
+}
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -56,29 +96,44 @@ app.on('activate', () => {
 })
 
 // IPC handlers for dispatcher file operations
-const getDispatchersFilePath = () => {
-  // Use project directory (radioscheduler folder)
-  const projectPath = path.join(__dirname, '..') // Go up from dist-electron to project root
-  return path.join(projectPath, 'dispatchers.json')
+// Use per-user data directory for read/write in packaged apps
+const getUserDataFilePath = () => {
+  const userDataPath = app.getPath('userData')
+  return path.join(userDataPath, 'dispatchers.json')
+}
+
+// Resolve a bundled default file path to seed user data on first run
+// In dev: project root dispatchers.json
+// In prod: process.resourcesPath/dispatchers.json (from electron-builder extraResources)
+const getBundledDefaultFilePath = () => {
+  const devRoot = process.env.APP_ROOT ? path.join(process.env.APP_ROOT, 'dispatchers.json') : ''
+  if (devRoot && fs.existsSync(devRoot)) return devRoot
+  return path.join(process.resourcesPath, 'dispatchers.json')
 }
 
 // Helper to ensure file exists
 function ensureDispatchersFileExists() {
-  const filePath = getDispatchersFilePath()
+  const filePath = getUserDataFilePath()
   if (!fs.existsSync(filePath)) {
     const dirPath = path.dirname(filePath)
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true })
     }
-    console.log('Creating new dispatchers.json file with empty array')
-    fs.writeFileSync(filePath, JSON.stringify([]))
+    const seedPath = getBundledDefaultFilePath()
+    if (fs.existsSync(seedPath)) {
+      console.log('Seeding dispatchers.json from:', seedPath)
+      fs.copyFileSync(seedPath, filePath)
+    } else {
+      console.log('Creating new dispatchers.json file with empty array at:', filePath)
+      fs.writeFileSync(filePath, JSON.stringify([]))
+    }
   }
 }
 
 ipcMain.handle('get-dispatchers', async () => {
   try {
     ensureDispatchersFileExists()
-    const filePath = getDispatchersFilePath()
+    const filePath = getUserDataFilePath()
     console.log('Loading dispatchers from:', filePath)
     
     const data = fs.readFileSync(filePath, 'utf-8')
@@ -94,7 +149,7 @@ ipcMain.handle('get-dispatchers', async () => {
 
 ipcMain.handle('save-dispatchers', async (_, dispatchers) => {
   try {
-    const filePath = getDispatchersFilePath()
+    const filePath = getUserDataFilePath()
     const dirPath = path.dirname(filePath)
     
     console.log('Saving dispatchers to:', filePath)
@@ -124,4 +179,11 @@ ipcMain.handle('save-dispatchers', async (_, dispatchers) => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+  setupAutoUpdater()
+  // Only check in packaged builds to avoid dev spam
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+})

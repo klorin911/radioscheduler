@@ -6,10 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
+    "build:mac": "tsc && vite build && electron-builder --mac dmg zip",
+    "build:win": "tsc && vite build && electron-builder --win nsis",
+    "build:linux": "tsc && vite build && electron-builder --linux AppImage deb",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "publish": "tsc && vite build && electron-builder -p onTagOrDraft",
+    "publish:mac": "tsc && vite build && electron-builder --mac -p onTagOrDraft",
+    "publish:win": "tsc && vite build && electron-builder --win -p onTagOrDraft"
   },
   "dependencies": {
+    "electron-updater": "^6.1.7",
     "glpk.js": "^4.0.2",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
@@ -22,6 +29,7 @@
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "@vitejs/plugin-react": "^4.2.1",
+    "dotenv-cli": "^10.0.0",
     "electron": "^30.0.1",
     "electron-builder": "^24.13.3",
     "eslint": "^8.57.0",
@@ -32,5 +40,46 @@
     "vite-plugin-electron": "^0.28.8",
     "vite-plugin-electron-renderer": "^0.14.5"
   },
-  "main": "dist-electron/main.js"
+  "main": "dist-electron/main.js",
+  "build": {
+    "appId": "com.kylerlorin.radioscheduler",
+    "productName": "Radio Scheduler",
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "asar": true,
+    "extraResources": [
+      {
+        "from": "dispatchers.json",
+        "to": "dispatchers.json"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "klorin911",
+        "repo": "radioscheduler",
+        "releaseType": "draft"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
 }

@@ -26,6 +26,8 @@ function App() {
     () => Object.fromEntries(days.map((d) => [d, {}])) as Record<Day, Record<string, number>>
   );
   const [history, setHistory] = useState<Schedule[]>([]);
+  const [updateStatus, setUpdateStatus] = useState<string>('idle');
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
   const applyScheduleUpdate = (producer: (prev: Schedule) => Schedule) => {
     setSchedule((prev) => {
@@ -309,6 +311,24 @@ function App() {
     }
   }, [schedule, dispatchers]);
 
+  // Listen for updater events from main
+  useEffect(() => {
+    const onStatus = (_e: any, payload: any) => {
+      if (!payload) return;
+      setUpdateStatus(payload.status || '');
+    };
+    const onProgress = (_e: any, progress: any) => {
+      const percent = typeof progress?.percent === 'number' ? progress.percent : null;
+      setDownloadProgress(percent);
+    };
+    window.ipcRenderer?.on('updater:status', onStatus);
+    window.ipcRenderer?.on('updater:progress', onProgress);
+    return () => {
+      window.ipcRenderer?.off('updater:status', onStatus);
+      window.ipcRenderer?.off('updater:progress', onProgress);
+    };
+  }, []);
+
   const handleChange = (
     day: Day,
     time: TimeSlot,
@@ -357,6 +377,20 @@ function App() {
           <button onClick={handleExportWeekPDF}>
             Export Week PDF
           </button>
+          {/* Updater controls */}
+          <button onClick={() => window.updaterAPI?.check?.() || window.ipcRenderer?.invoke('updater:check')}>
+            Check for Updates
+          </button>
+          <button
+            onClick={() => window.updaterAPI?.install?.() || window.ipcRenderer?.invoke('updater:install')}
+            disabled={updateStatus !== 'downloaded'}
+          >
+            Install Update
+          </button>
+          <span style={{ marginLeft: 8, fontSize: 12 }}>
+            Status: {updateStatus}
+            {downloadProgress != null ? ` • ${downloadProgress.toFixed(0)}%` : ''}
+          </span>
         </>
       )}
 

@@ -34,3 +34,13 @@ contextBridge.exposeInMainWorld('dispatcherAPI', {
   getDispatchers: (): Promise<Dispatcher[]> => ipcRenderer.invoke('get-dispatchers'),
   saveDispatchers: (data: Dispatcher[]): Promise<boolean> => ipcRenderer.invoke('save-dispatchers', data),
 })
+
+// Expose updater operations
+contextBridge.exposeInMainWorld('updaterAPI', {
+  check: (): Promise<boolean> => ipcRenderer.invoke('updater:check'),
+  install: (): Promise<boolean> => ipcRenderer.invoke('updater:install'),
+  onStatus: (listener: (payload: any) => void) => ipcRenderer.on('updater:status', (_e: IpcRendererEvent, payload: any) => listener(payload)),
+  offStatus: (listener: IpcListener) => ipcRenderer.off('updater:status', listener),
+  onProgress: (listener: (progress: any) => void) => ipcRenderer.on('updater:progress', (_e: IpcRendererEvent, progress: any) => listener(progress)),
+  offProgress: (listener: IpcListener) => ipcRenderer.off('updater:progress', listener),
+})

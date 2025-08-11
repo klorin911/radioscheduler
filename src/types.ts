@@ -50,6 +50,14 @@ export interface ExtendedDispatcher extends Dispatcher {
 // Electron API types
 declare global {
   interface Window {
+    updaterAPI?: {
+      check: () => Promise<boolean>;
+      install: () => Promise<boolean>;
+      onStatus?: (listener: (payload: any) => void) => void;
+      offStatus?: (listener: (event: any, ...args: any[]) => void) => void;
+      onProgress?: (listener: (progress: any) => void) => void;
+      offProgress?: (listener: (event: any, ...args: any[]) => void) => void;
+    };
     dispatcherAPI?: {
       getDispatchers: () => Promise<Dispatcher[]>;
       saveDispatchers: (data: Dispatcher[]) => Promise<boolean>;
