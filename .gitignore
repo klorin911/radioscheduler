@@ -29,6 +29,10 @@ logs
 .env.test.local
 .env.production.local
 
+# Local data files (keep private)
+dispatchers.json
+DISPATCHERS*.csv
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

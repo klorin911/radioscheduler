@@ -1,0 +1,11 @@
+Seniority,BADGE NUMBER,NAME,DISPLAY NAME,DAYS OFF,SHIFT,WORK DAYS,What is your name?,What is your badge number?,NE,NW,CE,SE,SW,MT,Would you like to work extra utility if it is available?,0330-0530,0530-0730,0730-0930,0930-1130,1130-1330,1330-1530,1530-1730,1730-1930,1930-2130,2130-2330,2330-0130,0130-0330
+1,D1001,ALEX SMITH,ASMI,TFS,A,"Monday, Tuesday, Wednesday, Thursday",,,3,2,1,,,,,,,,1,2,,,,,,,
+2,D1015,BLAKE JOHNSON,BJOH,TWT,B,"Monday, Friday, Saturday, Sunday",,,1,2,,,,,,,,,,1,2,,,,,,
+3,D1027,CASEY WILSON,CWIL,MSS,C,"Tuesday, Wednesday, Thursday, Friday",,,,,2,1,,,,,,,,1,2,,,,,
+4,D1043,DANA BROWN,DBRO,TWT,A,"Wednesday, Thursday, Friday, Saturday",,,,,,,,,,,,,,,,,,,,,,
+5,D1058,EVAN DAVIS,EDAT,TFS,D,"Monday, Tuesday, Wednesday, Sunday",,,,2,1,,,,,2,,,,,,,1,,,
+6,D1072,FINN GARCIA,FGAR,MTS,E,"Thursday, Friday, Saturday, Sunday",,,,,1,2,,,,,,,,,,1,2,,
+7,D1089,GRACE MILLER,GMIL,TWT,F,"Monday, Friday, Saturday, Sunday",,,1,,,,,1,,1,,,,,,,,,2,1
+8,D1156,HARPER TAYLOR,HTAY,TWT,B,"Monday, Friday, Saturday, Sunday",,,,,,1,,,,,,,,1,,,,,,
+9,D1203,JORDAN ANDERSON,JAND,MSS,C,"Tuesday, Wednesday, Thursday, Friday",,,2,1,,,,,,,1,2,,,,,,,
+50,D2001,TRAINEE LEE,TLEE,TFS,A,"Monday, Tuesday, Wednesday, Thursday",,,,,,,,,,,,,,,,,,,,,,
