@@ -51,6 +51,9 @@
       "package.json"
     ],
     "asar": true,
+    "asarUnpack": [
+      "**/LICENSE*"
+    ],
     "extraResources": [
       {
         "from": "electron/resources/dispatchers.json",
