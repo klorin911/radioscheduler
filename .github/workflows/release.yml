@@ -18,8 +18,7 @@ jobs:
       packages: write
       
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
       
     steps:
       - name: Checkout code
@@ -36,12 +35,19 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline
         
-      - name: Verify GH_TOKEN
+      - name: Verify GH_TOKEN (Unix)
+        if: ${{ runner.os != 'Windows' && env.GH_TOKEN == '' }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::error::GH_TOKEN is not set"
-            exit 1
-          fi
+          echo "::error::GH_TOKEN is not set"
+          exit 1
+        shell: bash
+
+      - name: Verify GH_TOKEN (Windows)
+        if: ${{ runner.os == 'Windows' && env.GH_TOKEN == '' }}
+        run: |
+          Write-Host "::error::GH_TOKEN is not set"
+          exit 1
+        shell: pwsh
 
       - name: Build and publish (macOS)
         if: matrix.os == 'macos-14'
