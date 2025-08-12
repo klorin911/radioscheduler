@@ -1,7 +1,7 @@
 {
   "name": "electron-vite-project",
   "private": true,
-  "version": "0.0.8",
+  "version": "0.0.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -45,9 +45,13 @@
   "build": {
     "appId": "com.kylerlorin.radioscheduler",
     "productName": "Radio Scheduler",
+    "copyright": "Copyright © 2024",
+    "directories": {
+      "output": "dist_electron"
+    },
     "files": [
-      "dist/**",
-      "dist-electron/**",
+      "dist/**/*",
+      "dist-electron/**/*",
       "package.json"
     ],
     "asar": true,
@@ -60,34 +64,23 @@
         "to": "dispatchers.json"
       }
     ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "klorin911",
-        "repo": "radioscheduler",
-        "releaseType": "release"
-      }
-    ],
+    "publish": {
+      "provider": "github",
+      "owner": "klorin911",
+      "repo": "radioscheduler",
+      "releaseType": "release"
+    },
     "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["universal"]
-        }
-      ],
+      "category": "public.app-category.utilities",
+      "target": ["dmg", "zip"],
+      "electronLanguages": ["en"],
       "electronUniversal": {
-        "allowList": [
-          "LICENSE"
-        ]
+        "allowList": ["LICENSE"]
       }
     },
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ]
+      "target": "nsis",
+      "publisherName": "Kyler Lorin"
     },
     "nsis": {
       "oneClick": false,
@@ -96,10 +89,8 @@
       "createStartMenuShortcut": true
     },
     "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ]
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
     }
   }
 }
