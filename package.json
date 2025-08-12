@@ -76,6 +76,11 @@
         }
       ]
     },
+    "electronUniversal": {
+      "allowList": [
+        "LICENSE"
+      ]
+    },
     "win": {
       "target": [
         {
