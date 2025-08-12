@@ -74,12 +74,12 @@
           "target": "dmg",
           "arch": ["universal"]
         }
-      ]
-    },
-    "electronUniversal": {
-      "allowList": [
-        "LICENSE"
-      ]
+      ],
+      "electronUniversal": {
+        "allowList": [
+          "LICENSE"
+        ]
+      }
     },
     "win": {
       "target": [
