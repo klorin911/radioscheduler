@@ -1,7 +1,7 @@
 {
   "name": "electron-vite-project",
   "private": true,
-  "version": "0.0.9",
+  "version": "0.0.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -72,10 +72,17 @@
     },
     "mac": {
       "category": "public.app-category.utilities",
-      "target": ["dmg", "zip"],
-      "electronLanguages": ["en"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "electronLanguages": [
+        "en"
+      ],
       "electronUniversal": {
-        "allowList": ["LICENSE"]
+        "allowList": [
+          "LICENSE"
+        ]
       }
     },
     "win": {
@@ -89,7 +96,10 @@
       "createStartMenuShortcut": true
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     }
   }
