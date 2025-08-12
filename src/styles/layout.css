@@ -3,9 +3,37 @@
 .day-tabs {
   margin-top: 1rem;
   min-height: 40px; /* keep consistent header spacing even when hidden */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .day-tabs button {
-  margin: 0 4px;
-  padding: 4px 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #162237, #0f1a2c);
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease, border-color 0.2s ease, transform 0.12s ease;
+}
+
+.day-tabs button:hover {
+  border-color: var(--primary);
+}
+
+.day-tabs button.active {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.day-tabs button.active:hover {
+  border-color: rgba(59, 130, 246, 0.75);
 }

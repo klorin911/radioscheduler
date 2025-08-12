@@ -112,12 +112,8 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
       const daysFor = person.workDays;
       return !daysFor || daysFor.length === 0 || daysFor.includes(day);
     };
-
-    // Also include anyone actually assigned (even if not rostered for this day)
-    const assignedIds = new Set(Object.keys(slotCounts || {}));
-
     return dispatchers
-      .filter(d => worksOnDay(d) || assignedIds.has(d.id))
+      .filter(d => worksOnDay(d))
       .map(d => ({ ...d, count: slotCounts[d.id] ?? 0 }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [dispatchers, day, slotCounts]);

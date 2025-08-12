@@ -1,8 +1,55 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* App shell */
+.app {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* App-specific styles - unused template styles removed */
+/* Header */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Button variants for header */
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  border-color: var(--primary);
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--primary), var(--primary-600));
+  border-color: rgba(59, 130, 246, 0.6);
+}
+.btn-primary:hover {
+  background: linear-gradient(180deg, var(--primary-600), var(--primary-700));
+  border-color: rgba(59, 130, 246, 0.8);
+}

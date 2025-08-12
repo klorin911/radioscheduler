@@ -6,16 +6,18 @@
 }
 
 .daily-counts-summary {
-  background-color: #2a2a2a;
+  background: rgba(2, 6, 23, 0.35);
   padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #444;
+  border-radius: calc(var(--radius) - 4px);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .daily-counts-summary strong {
   display: block;
   margin-bottom: 8px;
-  color: #ccc;
+  color: var(--text);
 }
 
 .counts-container {
@@ -25,8 +27,9 @@
 }
 
 .count-pill {
-  background-color: #3e3e3e;
-  color: #e0e0e0;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--text);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 0.9em;
@@ -34,7 +37,7 @@
 }
 
 .count-pill strong {
-  color: #fff;
+  color: var(--text);
   display: inline;
   margin-left: 4px;
 }
@@ -47,31 +50,36 @@
 
 .schedule-table th,
 .schedule-table td {
-  border: 1px solid #666;
+  border: 1px solid var(--border);
   padding: 6px 10px;
+}
+
+.schedule-table th {
+  background: rgba(2, 6, 23, 0.35);
+  color: var(--text);
 }
 
 .schedule-table select {
   width: 90px;
-  background-color: #222;
-  color: #fff;
-  border: 1px solid #444;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .dispatcher-select-filled {
-  background-color: #2a4a2a !important;
-  border: 1px solid #4a7c59 !important;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18)) !important;
+  border: 1px solid rgba(59, 130, 246, 0.45) !important;
   cursor: help;
 }
 
 .dispatcher-select-filled:hover {
-  background-color: #3a5a3a !important;
-  border-color: #5a8c69 !important;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0.20)) !important;
+  border-color: rgba(59, 130, 246, 0.65) !important;
 }
 
 .dispatcher-select-empty {
-  background-color: #222 !important;
-  border: 1px solid #444 !important;
+  background-color: var(--surface) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .dispatcher-tooltip-container {

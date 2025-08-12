@@ -13,7 +13,9 @@ import { countSlotsPerDispatcher } from './solver/utils/scheduleUtils';
 
 const MAX_HISTORY = 50;
 
-// --- Utilities ---
+// =============================
+// Utilities
+// =============================
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const timestampedFileName = (prefix: string, ext: 'csv' | 'pdf') => {
   const ts = new Date();
@@ -21,6 +23,9 @@ const timestampedFileName = (prefix: string, ext: 'csv' | 'pdf') => {
 };
 
 function App() {
+  // =============================
+  // State
+  // =============================
   const [schedule, setSchedule] = useState<Schedule>(() => loadSchedule());
   const [selectedDay, setSelectedDay] = useState<Day>('Monday');
   const [dispatchers, setDispatchers] = useState<ExtendedDispatcher[]>([]);
@@ -33,6 +38,9 @@ function App() {
   const [history, setHistory] = useState<Schedule[]>([]);
   const scheduleRef = useRef(schedule);
 
+  // =============================
+  // Schedule state helpers
+  // =============================
   const applyScheduleUpdate = (producer: (prev: Schedule) => Schedule) => {
     setSchedule((prev) => {
       setHistory((h) => [prev, ...h].slice(0, MAX_HISTORY));
@@ -40,7 +48,9 @@ function App() {
     });
   };
 
-  // --- Export to CSV helpers ---
+  // =============================
+  // Export: CSV
+  // =============================
   const buildCSVForWeek = useCallback((sched: Schedule): string => {
     const csvQuote = (val: string) => '"' + (val ?? '').replace(/"/g, '""') + '"';
     // Day-separated blocks. For each day:
@@ -84,7 +94,9 @@ function App() {
 
   // Removed single-day CSV export handler
 
-  // --- Export Week to PDF (Mon-Thu on page 1; Fri-Sun on page 2) ---
+  // =============================
+  // Export: PDF (Mon–Thu page 1; Fri–Sun page 2)
+  // =============================
   const handleExportWeekPDF = useCallback(async () => {
     const { default: JsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
@@ -172,15 +184,21 @@ function App() {
     doc.save(file);
   }, []);
 
-  const undoLast = () => {
+  // =============================
+  // Undo
+  // =============================
+  const undoLast = useCallback(() => {
     setHistory((h) => {
       if (h.length === 0) return h;
       const [prev, ...rest] = h;
       setSchedule(prev);
       return rest;
     });
-  };
+  }, []);
 
+  // =============================
+  // Dispatchers: normalization and seniority
+  // =============================
   // Normalize loaded dispatchers (badge string -> number, wantsExtraRadio -> minimumRadioOnly, defaults)
   type LegacyDispatcher = Omit<ExtendedDispatcher, 'badgeNumber' | 'minimumRadioOnly'> & {
     badgeNumber?: number | string;
@@ -283,6 +301,9 @@ function App() {
     return changed ? result : list;
   }, []);
 
+  // =============================
+  // Effects: load/save, refs, derived counts
+  // =============================
   // Load dispatchers on mount
   useEffect(() => {
     const loadDispatchersAsync = async () => {
@@ -351,7 +372,10 @@ function App() {
     };
   }, [handleExportWeek, handleExportWeekPDF]);
 
-  const handleChange = (
+  // =============================
+  // Handlers
+  // =============================
+  const handleChange = useCallback((
     day: Day,
     time: TimeSlot,
     column: Column,
@@ -368,45 +392,64 @@ function App() {
         },
       },
     }));
-  };
+  }, []);
 
   return (
     <div className="app">
-      <h1>Radio Scheduler</h1>
-      <button onClick={() => setShowDispatchersPage((v) => !v)}>
-        {showDispatchersPage ? 'Back to Schedule' : 'Manage Dispatchers'}
-      </button>
-      {!showDispatchersPage && (
-        <>
-          <button onClick={() => applyScheduleUpdate(() => createEmptySchedule())}>
-            Reset Schedule
+      <div className="app-header">
+        <div className="app-title">
+          <h1>Radio Scheduler</h1>
+        </div>
+        <div className="header-actions">
+          {!showDispatchersPage && (
+            <>
+              <button
+                className="btn-ghost"
+                onClick={() => applyScheduleUpdate(() => createEmptySchedule())}
+              >
+                Reset Schedule
+              </button>
+              <button
+                className="btn-ghost"
+                disabled={history.length === 0}
+                onClick={undoLast}
+              >
+                Undo
+              </button>
+              <button
+                className="btn-primary"
+                disabled={solving}
+                onClick={async () => {
+                  setSolving(true);
+                  const newSched = await generateWeeklySchedule(schedule, dispatchers);
+                  applyScheduleUpdate(() => newSched);
+                  setSolving(false);
+                }}
+              >
+                {solving ? 'Generating...' : 'Auto Schedule'}
+              </button>
+            </>
+          )}
+          <button
+            className="btn-ghost"
+            onClick={() => setShowDispatchersPage((v) => !v)}
+          >
+            {showDispatchersPage ? 'Back to Schedule' : 'Manage Dispatchers'}
           </button>
-          <button disabled={history.length === 0} onClick={undoLast}>
-            Undo
-          </button>
-          <button disabled={solving} onClick={async () => {
-            setSolving(true);
-            const newSched = await generateWeeklySchedule(schedule, dispatchers);
-            applyScheduleUpdate(() => newSched);
-            setSolving(false);
-          }}>
-            {solving ? 'Generating...' : 'Auto Schedule'}
-          </button>
-
-        </>
-      )}
+        </div>
+      </div>
 
       <div className="day-tabs">
         {!showDispatchersPage &&
           days.map((d) => (
-          <button
-            key={d}
-            className={d === selectedDay ? 'active' : ''}
-            onClick={() => setSelectedDay(d)}
-          >
-            {d}
-          </button>
-        ))}
+            <button
+              key={d}
+              className={d === selectedDay ? 'active' : ''}
+              onClick={() => setSelectedDay(d)}
+            >
+              {d}
+            </button>
+          ))}
       </div>
 
       {showDispatchersPage ? (
@@ -427,4 +470,4 @@ function App() {
   );
 }
 
-export default App
+export default App;

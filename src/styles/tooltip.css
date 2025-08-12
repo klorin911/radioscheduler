@@ -4,28 +4,30 @@
 }
 
 .dispatcher-tooltip {
-  background: #2a2a2a;
-  border: 1px solid #444;
-  border-radius: 6px;
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 6px);
   padding: 8px 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-soft);
   font-size: 12px;
   line-height: 1.4;
   min-width: 200px;
   max-width: 300px;
   pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .tooltip-header {
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 4px;
   margin-bottom: 6px;
-  color: #fff;
+  color: var(--text);
   font-size: 13px;
 }
 
 .tooltip-content {
-  color: #ccc;
+  color: var(--muted);
 }
 
 .tooltip-row {
@@ -36,12 +38,12 @@
 
 .tooltip-label {
   font-weight: 500;
-  color: #aaa;
+  color: var(--muted);
   margin-right: 8px;
 }
 
 .tooltip-value {
-  color: #fff;
+  color: var(--text);
   text-align: right;
   flex: 1;
 }
@@ -54,5 +56,5 @@
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
-  border-top-color: #2a2a2a;
+  border-top-color: rgba(2, 6, 23, 0.92);
 }
