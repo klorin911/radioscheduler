@@ -177,7 +177,7 @@ function setupAutoUpdater() {
   const send = (channel: string, payload?: unknown) => {
     try {
       win?.webContents.send(channel, payload)
-    } catch (e) {
+    } catch {
       // noop: window may be closed between events
     }
   }

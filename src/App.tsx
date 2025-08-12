@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import './styles/App.css';
 import './styles/layout.css';
 import './styles/manage-dispatchers.css';
 import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots } from './constants';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 import { ExtendedDispatcher } from './types';
 import ManageDispatchers from './components/ManageDispatchers';
@@ -14,6 +12,13 @@ import { generateWeeklySchedule } from './solver/weekScheduler';
 import { countSlotsPerDispatcher } from './solver/utils/scheduleUtils';
 
 const MAX_HISTORY = 50;
+
+// --- Utilities ---
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const timestampedFileName = (prefix: string, ext: 'csv' | 'pdf') => {
+  const ts = new Date();
+  return `${prefix}-${ts.getFullYear()}${pad2(ts.getMonth() + 1)}${pad2(ts.getDate())}-${pad2(ts.getHours())}${pad2(ts.getMinutes())}.${ext}`;
+};
 
 function App() {
   const [schedule, setSchedule] = useState<Schedule>(() => loadSchedule());
@@ -26,6 +31,7 @@ function App() {
     () => Object.fromEntries(days.map((d) => [d, {}])) as Record<Day, Record<string, number>>
   );
   const [history, setHistory] = useState<Schedule[]>([]);
+  const scheduleRef = useRef(schedule);
 
   const applyScheduleUpdate = (producer: (prev: Schedule) => Schedule) => {
     setSchedule((prev) => {
@@ -35,9 +41,8 @@ function App() {
   };
 
   // --- Export to CSV helpers ---
-  const csvQuote = (val: string) => '"' + (val ?? '').replace(/"/g, '""') + '"';
-
-  const buildCSVForWeek = (sched: Schedule): string => {
+  const buildCSVForWeek = useCallback((sched: Schedule): string => {
+    const csvQuote = (val: string) => '"' + (val ?? '').replace(/"/g, '""') + '"';
     // Day-separated blocks. For each day:
     //  - Row 1: headers with Day name in the top-left cell (e.g., [Monday, SW, CE, ...])
     //  - Rows : first column are times, followed by assignments
@@ -55,7 +60,7 @@ function App() {
       });
     });
     return lines.join('\n');
-  };
+  }, []);
 
   // Removed single-day CSV export builder
 
@@ -71,84 +76,101 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportWeek = () => {
-    const csv = buildCSVForWeek(schedule);
-    const ts = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const file = `radioschedule-week-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.csv`;
+  const handleExportWeek = useCallback(() => {
+    const csv = buildCSVForWeek(scheduleRef.current);
+    const file = timestampedFileName('radioschedule-week', 'csv');
     downloadCSV(file, csv);
-  };
+  }, [buildCSVForWeek]);
 
   // Removed single-day CSV export handler
 
   // --- Export Week to PDF (Mon-Thu on page 1; Fri-Sun on page 2) ---
-  const handleExportWeekPDF = () => {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 36; // half-inch margins
-    const spacing = 12; // tighter space between day tables
+  const handleExportWeekPDF = useCallback(async () => {
+    const { default: JsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+    const pageWidth = doc.internal.pageSize.getWidth(); // ~612pt in portrait
+    const margin = 10; // Minimal margins to maximize space
+    const spacing = 20; // A bit more room between days
 
-    // Column widths: time a bit wider, others equal to fit width
-    const available = pageWidth - margin * 2;
-    const timeCol = 70;
-    const channelCount = columns.length; // 8
+    // Exclude RELIEF column since it's always empty
+    const pdfColumns = columns.filter(col => col !== 'RELIEF');
+
+    // Optimized column width calculation for portrait
+    const available = pageWidth - margin * 2; // ~588pt available
+    const timeCol = 60; // Narrowest practical time column
+    const channelCount = pdfColumns.length; // 7 columns (excluding RELIEF)
     const restWidth = available - timeCol;
-    const channelCol = Math.max(50, Math.floor(restWidth / channelCount));
+    const channelCol = Math.max(60, Math.floor(restWidth / channelCount) - 1);
+    const totalWidth = timeCol + channelCol * channelCount;
 
     const makeDayTable = (day: Day, startY: number) => {
       // Day title centered above table
-      doc.setFontSize(11);
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       const title = String(day);
       const titleWidth = doc.getTextWidth(title);
       doc.text(title, margin + (available - titleWidth) / 2, startY);
 
+      // Create table body with current schedule data (excluding RELIEF)
+      const tableBody = timeSlots.map((slot) => [
+        slot,
+        ...pdfColumns.map((c) => scheduleRef.current[day][slot][c] || ''),
+      ]);
+
       autoTable(doc, {
-        startY: startY + 12,
+        startY: startY + 17, // Accommodate larger title
         margin: { left: margin, right: margin },
-        head: [[ 'Time', ...columns ]],
-        body: timeSlots.map((slot) => [ slot, ...columns.map((c) => schedule[day][slot][c] || '') ]),
+        head: [['Time', ...pdfColumns]],
+        body: tableBody,
         styles: {
           halign: 'center',
           valign: 'middle',
           fontSize: 8,
           cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [180, 180, 180],
+          overflow: 'linebreak',
         },
         headStyles: {
           halign: 'center',
-          fillColor: [230, 230, 230],
+          fillColor: [235, 235, 235],
           textColor: 20,
           fontStyle: 'bold',
+          fontSize: 8,
         },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
         columnStyles: Object.fromEntries(
-          [0, ...columns.map((_, i) => i + 1)].map((idx) => [idx, { cellWidth: idx === 0 ? timeCol : channelCol }])
-        ) as Record<number, { cellWidth: number }>,
-        tableWidth: available,
+          [0, ...pdfColumns.map((_, i) => i + 1)].map((idx) => [
+            idx,
+            { cellWidth: idx === 0 ? timeCol : channelCol, fontSize: 8 },
+          ])
+        ) as Record<number, { cellWidth: number; fontSize: number }>,
+        tableWidth: totalWidth,
+        theme: 'grid',
+        showHead: true,
       });
 
-      // Return bottom Y
-      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? (startY + 12);
+      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY + 22;
       return lastY + spacing;
     };
 
-    let y = margin;
+    let y = 40; // Start with a top margin
     // First 4 days on page 1
-    days.slice(0, 4).forEach((d, i) => {
-      y = makeDayTable(d, i === 0 ? y : y);
+    days.slice(0, 4).forEach((d) => {
+      y = makeDayTable(d, y);
     });
 
     // New page for remaining 3 days
     doc.addPage();
-    y = margin;
-    days.slice(4).forEach((d, i) => {
-      y = makeDayTable(d, i === 0 ? y : y);
+    y = 40; // Reset Y for new page with top margin
+    days.slice(4).forEach((d) => {
+      y = makeDayTable(d, y);
     });
 
-    const ts = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const file = `radioschedule-week-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.pdf`;
+    const file = timestampedFileName('radioschedule-week', 'pdf');
     doc.save(file);
-  };
+  }, []);
 
   const undoLast = () => {
     setHistory((h) => {
@@ -276,6 +298,11 @@ function App() {
   // Save schedule 
   useEffect(() => {
     saveSchedule(schedule);
+  }, [schedule]);
+
+  // Keep a ref of the latest schedule for stable export callbacks
+  useEffect(() => {
+    scheduleRef.current = schedule;
   }, [schedule]);
 
   // Save dispatchers (only after initial load to prevent overwriting)

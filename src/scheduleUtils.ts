@@ -22,7 +22,7 @@ export const loadSchedule = (): Schedule => {
   try {
     const str = localStorage.getItem('schedule');
     if (str) return JSON.parse(str);
-  } catch (_) {
+  } catch {
     // ignore
   }
   return createEmptySchedule();

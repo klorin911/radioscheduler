@@ -1,8 +1,9 @@
-// Using CommonJS require so compiled preload.js is CJS-compatible
-/* eslint-disable @typescript-eslint/no-var-requires */
-const { ipcRenderer, contextBridge } = require('electron');
+// Electron preload runs in a CommonJS context. Use require() at runtime,
+// but keep TypeScript types via type-only imports.
+/* eslint-disable @typescript-eslint/no-require-imports */
+import type { IpcRendererEvent } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
-type IpcRendererEvent = Electron.IpcRendererEvent;
 type IpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
 
 // Import types for proper typing
