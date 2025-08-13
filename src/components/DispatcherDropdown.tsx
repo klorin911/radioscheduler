@@ -98,6 +98,26 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
     }
   }, [isTyping, typingValue, dispatchers, handleSelect, column]);
 
+  // When the button is clicked, open the dropdown and focus the hidden input
+  // so the user can immediately start typing (no need to press Tab).
+  const handleButtonClick = useCallback(() => {
+    setIsOpen(prev => {
+      const next = !prev;
+      if (next) {
+        // Reset any prior typing buffer and move focus to the hidden input
+        setIsTyping(false);
+        setTypingValue('');
+        setTimeout(() => {
+          if (inputRef.current) inputRef.current.focus();
+        }, 0);
+      } else {
+        setIsTyping(false);
+        setTypingValue('');
+      }
+      return next;
+    });
+  }, []);
+
   // Handle keyboard input for typing
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -270,7 +290,7 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
         <DispatcherTooltip dispatcher={selectedDispatcher}>
           <button
             className="dropdown-button filled"
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={handleButtonClick}
             onKeyDown={handleButtonKeyDown}
             tabIndex={0}
           >
@@ -281,7 +301,7 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       ) : (
         <button
           className={`dropdown-button ${value ? 'filled' : 'empty'}`}
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleButtonClick}
           onKeyDown={handleButtonKeyDown}
           tabIndex={0}
         >
@@ -309,10 +329,21 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
               const presentTrainees = (() => {
                 if (column === 'UT') return [] as ExtendedDispatcher[];
                 let pts = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
-                // When searching, only show trainee pairs that match the query
+                // Typing behavior:
+                // - If trainer matches the query, show ALL of their trainees (so "JDU" shows JDUK/GMOO).
+                // - Otherwise, show only trainees that match the query.
                 if (typingValue && typingValue.trim()) {
                   const st = typingValue.toLowerCase().trim();
-                  pts = pts.filter(t => t.id.toLowerCase().startsWith(st) || (t.name || '').toLowerCase().startsWith(st));
+                  const trainerMatches =
+                    dispatcher.id.toLowerCase().startsWith(st) ||
+                    (dispatcher.name || '').toLowerCase().startsWith(st);
+                  if (!trainerMatches) {
+                    pts = pts.filter(
+                      t =>
+                        t.id.toLowerCase().startsWith(st) ||
+                        (t.name || '').toLowerCase().startsWith(st)
+                    );
+                  }
                 }
                 return pts;
               })();

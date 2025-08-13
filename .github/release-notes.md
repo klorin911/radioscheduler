@@ -13,10 +13,39 @@ This release includes installers and update metadata for in-app auto-updates. Fo
 - latest-mac.yml, latest.yml: update manifests consumed by the app to discover updates.
 - *.blockmap: differential update data to make downloads smaller during auto-update.
 
-## Tips
+## Troubleshooting on macOS (unsigned build)
 
-- If you installed a previous version, the app will normally auto-update. Manual download is only needed for a fresh install or when instructed.
-- On macOS, if you see a Gatekeeper warning, right-click the app and choose Open the first time.
+These builds are currently unsigned/notarized, so macOS Gatekeeper may block first launch with a message like “is damaged and can’t be opened.”
+
+Recommended steps (do one of the following):
+
+1) Use Finder “Open” override (no Terminal)
+- Move the app to /Applications
+- Right-click the app (or Control-click) → Open → Open
+- This whitelists the app for future launches
+
+2) Remove quarantine attribute (Terminal)
+- If in Applications:
+  xattr -dr com.apple.quarantine "/Applications/Radio Scheduler.app"
+- If still in Downloads:
+  xattr -dr com.apple.quarantine "$HOME/Downloads/Radio Scheduler.app"
+
+3) Launch via CLI once (may prompt to allow)
+- open -a "Radio Scheduler"
+
+Notes:
+- Always copy the app to /Applications before using option 2 or 3 for best results.
+- After the first successful launch, Gatekeeper will remember your approval.
+
+## Auto-update behavior
+
+- Windows: auto-update is supported.
+- macOS: unsigned/notarized apps may not auto-update reliably. If the app does not update itself, download the latest installer from the Releases page and replace the app in /Applications.
+
+## Windows SmartScreen
+
+If you see “Windows protected your PC”:
+- Click “More info” → “Run anyway” to proceed.
 
 ## Changes
 

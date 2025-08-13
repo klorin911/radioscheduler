@@ -439,9 +439,9 @@ function App() {
         </div>
       </div>
 
-      <div className="day-tabs">
-        {!showDispatchersPage &&
-          days.map((d) => (
+      {!showDispatchersPage && (
+        <div className="day-tabs">
+          {days.map((d) => (
             <button
               key={d}
               className={d === selectedDay ? 'active' : ''}
@@ -450,7 +450,8 @@ function App() {
               {d}
             </button>
           ))}
-      </div>
+        </div>
+      )}
 
       {showDispatchersPage ? (
         <ManageDispatchers

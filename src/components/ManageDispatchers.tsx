@@ -209,8 +209,16 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                   <label>ID:</label>
                   <input
                     value={d.id}
-                    onChange={(e) => update(originalIndex, 'id', e.target.value.toUpperCase())}
-                    onClick={(e) => e.stopPropagation()}
+                    readOnly={expandedCard !== filteredIndex}
+                    onChange={(e) => {
+                      if (expandedCard === filteredIndex) {
+                        update(originalIndex, 'id', e.target.value.toUpperCase());
+                      }
+                    }}
+                    onClick={(e) => {
+                      if (expandedCard === filteredIndex) e.stopPropagation();
+                      // when collapsed, allow bubbling to expand the card
+                    }}
                     className="dispatcher-id-input"
                     placeholder="Short Name (e.g., KLOR)"
                   />
@@ -264,8 +272,16 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                   <label>Name:</label>
                   <input
                     value={d.name}
-                    onChange={(e) => update(originalIndex, 'name', e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
+                    readOnly={expandedCard !== filteredIndex}
+                    onChange={(e) => {
+                      if (expandedCard === filteredIndex) {
+                        update(originalIndex, 'name', e.target.value);
+                      }
+                    }}
+                    onClick={(e) => {
+                      if (expandedCard === filteredIndex) e.stopPropagation();
+                      // when collapsed, allow bubbling to expand the card
+                    }}
                     className="dispatcher-name-input"
                     placeholder="Full Name"
                   />
@@ -275,19 +291,29 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                   <input
                     placeholder="Badge # (seniority)"
                     value={d.badgeNumber || ''}
+                    readOnly={expandedCard !== filteredIndex}
                     onChange={(e) => {
+                      if (expandedCard !== filteredIndex) return;
                       const value = e.target.value.trim();
                       const numValue = value ? parseInt(value, 10) : undefined;
                       update(originalIndex, 'badgeNumber', numValue);
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      if (expandedCard === filteredIndex) e.stopPropagation();
+                      // when collapsed, allow bubbling to expand the card
+                    }}
                     className="dispatcher-badge-input"
                   />
                 </div>
                 <select
                   value={d.shift || 'A'}
-                  onChange={(e) => update(originalIndex, 'shift', e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    if (expandedCard === filteredIndex) {
+                      update(originalIndex, 'shift', e.target.value);
+                    }
+                  }}
+                  onMouseDown={(e) => { if (expandedCard !== filteredIndex) e.preventDefault(); }}
+                  onClick={(e) => { if (expandedCard === filteredIndex) e.stopPropagation(); }}
                   className="dispatcher-shift-select"
                   disabled={!!(d.isTrainee && d.followTrainerSchedule)}
                 >
