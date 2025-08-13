@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "clean": "node -e \"const fs=require('fs');['dist','dist-electron','dist_electron'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});}catch{}})\"",
+    "prebuild": "npm run clean",
     "build": "tsc && vite build && electron-builder",
     "build:mac": "tsc && vite build && electron-builder --mac dmg zip",
     "build:win": "tsc && vite build && electron-builder --win nsis",
@@ -64,11 +66,15 @@
         "to": "dispatchers.json"
       }
     ],
+    "artifactName": "Radio-Scheduler-${version}-${os}-${arch}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "klorin911",
       "repo": "radioscheduler",
       "releaseType": "release"
+    },
+    "releaseInfo": {
+      "releaseNotesFile": ".github/release-notes.md"
     },
     "mac": {
       "category": "public.app-category.utilities",
