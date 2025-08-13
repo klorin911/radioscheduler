@@ -10,6 +10,7 @@ lerna-debug.log*
 dist
 dist-ssr
 dist-electron
+dist_electron
 *.local
 
 # Runtime data
