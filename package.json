@@ -79,11 +79,8 @@
       "electronLanguages": [
         "en"
       ],
-      "electronUniversal": {
-        "allowList": [
-          "LICENSE"
-        ]
-      }
+      "mergeASARs": true,
+      "singleArchFiles": "LICENSE"
     },
     "win": {
       "target": "nsis",
