@@ -8,7 +8,7 @@
   width: 100%;
   padding: 4px 8px;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, #162237, #0f1a2c);
+  background: linear-gradient(180deg, #1a2942, #14233a);
   color: var(--text);
   font-size: 12px;
   cursor: pointer;
@@ -113,3 +113,67 @@
 .dropdown-option.disabled:hover {
   background-color: transparent;
 }
+
+/* --- Accessibility & contrast overrides for Dispatcher Dropdown ---
+   Goal: Improve readability of dropdown text and controls while preserving dark theme.
+   - Primary off-white used: #E6EEF8 (good contrast on dark backgrounds)
+   - Button near-white used: #F0F6FB (slightly warmer/near-white for button labels)
+   - Secondary gray used: #9FB0C1 (for arrows and small/secondary text)
+   - Disabled/less-important: #95A6B6
+   - Subtle text-shadow for thin text: 0 1px 2px rgba(0,0,0,0.6)
+*/
+
+/* Ensure primary dropdown text is an accessible off-white */
+.dispatcher-dropdown,
+.dropdown-button,
+.dropdown-option,
+.dropdown-option span {
+  color: #E6EEF8 !important; /* off-white for better contrast on dark/blurred backgrounds */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* Make dropdown button labels slightly brighter to ensure contrast on tinted backgrounds */
+.dropdown-button,
+.dropdown-button.filled,
+.dropdown-button.empty {
+  color: #F0F6FB !important; /* near-white for buttons */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* Keep the arrow and tiny secondary text toned down but legible */
+.dropdown-arrow {
+  color: #9FB0C1 !important; /* medium-gray for non-primary glyphs */
+  text-shadow: none;
+}
+
+/* Dropdown options: primary text readable, selected state preserved */
+.dropdown-option {
+  color: #E6EEF8 !important;
+  background: transparent;
+}
+
+/* Hover and selected states keep sufficient contrast while preserving visual affordance */
+.dropdown-option:hover {
+  background: rgba(255,255,255,0.03); /* subtle lift to help the off-white text stand out */
+}
+.dropdown-option.selected {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
+  border-left: 2px solid rgba(59, 130, 246, 0.65);
+  color: #F0F6FB !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* Disabled options remain visibly subdued but legible */
+.dropdown-option.disabled {
+  color: #95A6B6 !important;
+  opacity: 0.95;
+  text-shadow: none;
+}
+
+/* Slight semi-opaque overlay for options area to isolate text from very busy backgrounds */
+.dropdown-options {
+  background: rgba(2, 6, 23, 0.92); /* slightly less transparent to improve text contrast */
+  backdrop-filter: blur(6px);
+}
+
+/* End of Dispatcher Dropdown accessibility overrides */

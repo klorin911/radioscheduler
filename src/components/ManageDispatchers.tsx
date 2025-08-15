@@ -198,7 +198,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
           const traineesOf = dispatchers.filter((p) => p.isTrainee === true && p.traineeOf === d.id);
           const isTrainer = traineesOf.length > 0;
           return (
-            <div key={d.id} className="dispatcher-card">
+            <div key={`${d.id}-${originalIndex}`} className="dispatcher-card">
             {/* Card Header */}
             <div 
               onClick={() => setExpandedCard(expandedCard === filteredIndex ? null : filteredIndex)}

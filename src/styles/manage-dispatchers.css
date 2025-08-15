@@ -54,7 +54,7 @@
   gap: 10px;
   margin-bottom: 20px;
   padding: 15px;
-  background: rgba(2, 6, 23, 0.35);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   backdrop-filter: blur(8px);
@@ -521,3 +521,102 @@
   border-radius: 4px;
   border-left: 3px solid var(--primary);
 }
+
+/* --- Accessibility & contrast overrides for Manage Dispatchers ---
+   Goal: Replace pure white with an off-white that improves contrast
+   - Off-white used: #E6EEF8 (improves readability on dark/blurred backgrounds)
+   - Secondary gray used: #9FB0C1 (for less-important text)
+   - Placeholder color: #B8C9D6 (ensures legibility for input placeholders)
+   - Subtle text-shadow added to thin white text: 0 1px 2px rgba(0,0,0,0.6)
+   Changes are intentionally conservative to preserve the dark theme and layout.
+*/
+
+/* Apply a readable off-white to primary text in this page */
+.manage-dispatchers-container,
+.manage-dispatchers-title,
+.section-title,
+.dispatcher-card-header,
+.dispatcher-card-header-content,
+.dispatcher-id-input,
+.dispatcher-name-input,
+.dispatcher-badge-input,
+.channel-name,
+.time-block-text,
+.checkbox-label,
+.add-dispatcher-btn,
+.delete-btn,
+.add-channel-btn,
+.move-up-btn,
+.move-down-btn,
+.remove-channel-btn {
+  /* off-white for improved contrast against dark / blurred backgrounds (#E6EEF8) */
+  color: #E6EEF8 !important;
+  /* subtle lift to help thin fonts stand out on blurred backgrounds */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* Increase weight for key labels (ID:, Name:, Badge #:) to 600-700 for better legibility */
+.dispatcher-id-input { font-weight: 700 !important; } /* was 600, raise to 700 for emphasis */
+.dispatcher-badge-input { font-weight: 600 !important; }
+.dispatcher-name-input { font-weight: 600 !important; }
+
+/* Secondary/smaller text: slightly larger and medium-gray for adequate contrast without competing
+   - medium-gray used: #9FB0C1 (good contrast while remaining visually secondary) */
+.section-subtitle,
+.expand-icon,
+.channel-rank,
+.work-day-btn,
+.add-time-block-btn,
+.dropdown-toggle,
+.dropdown-button {
+  color: #9FB0C1 !important;
+  /* slightly increase size for small labels */
+  font-size: calc(var(--small-font-size, 12px) + 1px);
+  text-shadow: none; /* avoid over-emphasizing secondary text */
+}
+
+/* Ensure input placeholders are legible (placeholder color at least visually distinct)
+   - placeholder color: #B8C9D6 to provide readable contrast with dark surfaces */
+.search-input::placeholder,
+.add-dispatcher-input::placeholder,
+.dispatcher-badge-input::placeholder {
+  color: #B8C9D6 !important;
+  opacity: 1; /* ensure some browsers don't dim the placeholder too much */
+}
+
+/* Slight semi-opaque overlay for dispatcher header to separate text from blurred bg
+   - overlay: rgba(255,255,255,0.02) keeps the dark theme but improves text isolation */
+.dispatcher-card-header {
+  background-color: rgba(255,255,255,0.02);
+}
+
+/* Buttons and interactive controls: use a more legible off-white for text on tinted backgrounds */
+.add-dispatcher-btn,
+.delete-btn,
+.work-day-btn.selected,
+.remove-time-block-btn,
+.dropdown-button,
+.dropdown-button.filled,
+.dropdown-button.empty {
+  color: #F0F6FB !important; /* slightly warmer / near-white for buttons to meet contrast */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* Keep disabled/less-important states subdued but still legible */
+.dropdown-option.disabled,
+.add-dispatcher-btn:disabled {
+  color: #95A6B6 !important;
+  opacity: 0.9;
+  text-shadow: none;
+}
+
+/* Micro-tweak: ensure inline tiny badges (trainee/trainer) keep strong contrast */
+.trainee-indicator,
+.trainer-indicator,
+.trainer-ref-badge,
+.trainee-ref-badge {
+  /* keep their existing dark-on-light palette, but ensure text remains legible */
+  color: #0b1a2b !important;
+}
+
+/* End of accessibility overrides for Manage Dispatchers */

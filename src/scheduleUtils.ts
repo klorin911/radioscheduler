@@ -52,14 +52,23 @@ export const loadDispatchers = async (): Promise<Dispatcher[]> => {
 export const saveDispatchers = async (dispatchers: Dispatcher[]) => {
   try {
     if (window.dispatcherAPI?.saveDispatchers) {
-      await window.dispatcherAPI.saveDispatchers(dispatchers);
+      // Debug log to confirm renderer is invoking the IPC save path
+      console.log('Renderer: invoking dispatcherAPI.saveDispatchers with', dispatchers.length, 'items');
+      const result = await window.dispatcherAPI.saveDispatchers(dispatchers);
+      console.log('Renderer: dispatcherAPI.saveDispatchers result:', result);
       return;
     }
     // Fallback to localStorage for web version
+    console.log('Renderer: dispatcherAPI not available; saving dispatchers to localStorage');
     localStorage.setItem('dispatchers', JSON.stringify(dispatchers));
   } catch (error) {
     console.error('Error saving dispatchers:', error);
     // Fallback to localStorage on error
-    localStorage.setItem('dispatchers', JSON.stringify(dispatchers));
+    try {
+      localStorage.setItem('dispatchers', JSON.stringify(dispatchers));
+      console.log('Renderer: fallback save to localStorage succeeded');
+    } catch (e) {
+      console.error('Renderer: fallback save to localStorage failed:', e);
+    }
   }
 };

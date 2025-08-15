@@ -7,11 +7,12 @@
 
   /* Dark-only color scheme with blue police-accent */
   color-scheme: dark;
-  --bg: #0b1220;              /* deep navy */
-  --surface: #111827;         /* slate-900 */
-  --surface-2: #0f172a;       /* slate-950 */
-  --overlay: rgba(17, 24, 39, 0.7);
-  --border: #263146;          /* muted slate border */
+  --bg: #131c2c;              /* deep navy (lightened ~10%) */
+  --surface: #1b2231;         /* slate-900 (lightened ~10%) */
+  --surface-2: #192134;       /* slate-950 (lightened ~10%) */
+  --overlay: rgba(17, 24, 39, 0.63);
+  --border: #303b50;          /* muted slate border (lightened) */
+  --panel-bg: rgba(2, 6, 23, 0.32);
   --muted: #9aa4b2;           /* slate-400 */
   --text: #e5eefc;            /* near-white with blue tint */
   --text-weak: #c7d2fe;       /* soft text */
@@ -28,8 +29,8 @@
   --shadow-soft: 0 2px 12px rgba(0,0,0,0.3);
   --glass-bg: linear-gradient(
     to bottom right,
-    rgba(17, 24, 39, 0.65),
-    rgba(17, 24, 39, 0.45)
+    rgba(17, 24, 39, 0.58),
+    rgba(17, 24, 39, 0.40)
   );
 
   background: radial-gradient(1200px 700px at 10% 10%, rgba(59, 130, 246, 0.12), transparent 60%),
@@ -73,7 +74,7 @@ button {
   font-size: 0.95rem;
   font-weight: 600;
   font-family: inherit;
-  background: linear-gradient(180deg, #162237, #0f1a2c);
+  background: linear-gradient(180deg, #1a2942, #14233a);
   color: var(--text);
   cursor: pointer;
   transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
