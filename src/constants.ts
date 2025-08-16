@@ -55,3 +55,27 @@ export type Schedule = {
     };
   };
 };
+
+/**
+ * Business rule: Disable MT assignments during specific time ranges
+ * - Mon-Fri: no MT at 0330-0530 or 0530-0730
+ * - Sat-Sun: no MT from 0330 through 1530 start, i.e. disable up to and including 1330-1530
+ */
+const WEEKDAY_MT_DISABLED: ReadonlyArray<TimeSlot> = ['0330-0530', '0530-0730'];
+const WEEKEND_MT_DISABLED: ReadonlyArray<TimeSlot> = [
+  '0330-0530',
+  '0530-0730',
+  '0730-0930',
+  '0930-1130',
+  '1130-1330',
+  '1330-1530',
+];
+
+/**
+ * Returns true if a given cell should be disabled (unassignable) in the UI and auto-scheduler.
+ */
+export function isCellDisabled(day: Day, slot: TimeSlot, column: Column): boolean {
+  if (column !== 'MT') return false;
+  const isWeekend = day === 'Saturday' || day === 'Sunday';
+  return isWeekend ? WEEKEND_MT_DISABLED.includes(slot) : WEEKDAY_MT_DISABLED.includes(slot);
+}

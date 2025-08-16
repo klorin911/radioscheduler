@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import './styles/App.css';
 import './styles/layout.css';
 import './styles/manage-dispatchers.css';
-import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots } from './constants';
+import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots, isCellDisabled } from './constants';
 
 import { ExtendedDispatcher } from './types';
 import ManageDispatchers from './components/ManageDispatchers';
@@ -130,6 +130,10 @@ function App() {
         ...pdfColumns.map((c) => scheduleRef.current[day][slot][c] || ''),
       ]);
 
+      // Determine MT pdf column index (add 1 because 0 is Time column in the PDF)
+      const mtColIndexInPdf = pdfColumns.indexOf('MT');
+      const mtPdfColumnIndex = mtColIndexInPdf >= 0 ? mtColIndexInPdf + 1 : -1;
+
       autoTable(doc, {
         startY: startY + 17, // Accommodate larger title
         margin: { left: margin, right: margin },
@@ -161,6 +165,23 @@ function App() {
         tableWidth: totalWidth,
         theme: 'grid',
         showHead: true,
+        // Black out disabled MT cells in PDF export
+        didParseCell: (data: any) => {
+          const { cell, row, column } = data || {};
+          // Only body cells, valid MT column present
+          if (!cell || !row || !column) return;
+          if (cell.section !== 'body') return;
+          if (mtPdfColumnIndex < 0) return;
+          if (column.index !== mtPdfColumnIndex) return;
+
+          // Row index aligns with timeSlots order since body is built from timeSlots.map
+          const slot = timeSlots[row.index];
+          if (isCellDisabled(day, slot as TimeSlot, 'MT')) {
+            // Solid black background, white text
+            cell.styles.fillColor = [0, 0, 0];
+            cell.styles.textColor = [255, 255, 255];
+          }
+        },
       });
 
       const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY + 22;

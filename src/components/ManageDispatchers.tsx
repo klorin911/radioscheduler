@@ -192,13 +192,23 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
       {/* Dispatcher Cards */}
       <div className="dispatchers-list" key={`list-${searchTerm}-${filteredDispatchers.length}`}>
         {filteredDispatchers.map((d, filteredIndex) => {
-          // Find the original index in the full dispatchers array
-          const originalIndex = dispatchers.findIndex(dispatcher => dispatcher.id === d.id);
+          // Find the original index in the full dispatchers array using object identity.
+          // This is robust even if multiple entries share the same `id`.
+          const originalIndex = dispatchers.indexOf(d);
           // Determine if this dispatcher is a trainer (has at least one trainee linked)
           const traineesOf = dispatchers.filter((p) => p.isTrainee === true && p.traineeOf === d.id);
           const isTrainer = traineesOf.length > 0;
+
+          // Derive displayed shift when a trainee follows their trainer's schedule
+          const trainerRecord =
+            d.isTrainee && d.followTrainerSchedule && d.traineeOf
+              ? dispatchers.find((p) => p.id === d.traineeOf)
+              : undefined;
+          const isFollowingTrainer = !!(d.isTrainee && d.followTrainerSchedule && d.traineeOf);
+          const displayedShift = isFollowingTrainer ? (trainerRecord?.shift || d.shift || 'A') : (d.shift || 'A');
+
           return (
-            <div key={`${d.id}-${originalIndex}`} className="dispatcher-card">
+              <div key={`dispatcher-${originalIndex}`} className="dispatcher-card">
             {/* Card Header */}
             <div 
               onClick={() => setExpandedCard(expandedCard === filteredIndex ? null : filteredIndex)}
@@ -306,7 +316,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                   />
                 </div>
                 <select
-                  value={d.shift || 'A'}
+                  value={displayedShift}
                   onChange={(e) => {
                     if (expandedCard === filteredIndex) {
                       update(originalIndex, 'shift', e.target.value);
@@ -382,7 +392,8 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
                         >
                           <option value="">-- Select Trainer --</option>
                           {dispatchers
-                            .filter((p) => p.id !== d.id && !p.isTrainee)
+                            // Exclude the current record by reference to avoid hiding other records with the same id
+                            .filter((p) => p !== d && !p.isTrainee)
                             .sort((a, b) => a.id.localeCompare(b.id))
                             .map((p) => (
                               <option key={p.id} value={p.id}>{p.id} — {p.name}</option>

@@ -1,4 +1,4 @@
-import { Day, timeSlots, columns } from '../../constants';
+import { Day, timeSlots, columns, isCellDisabled } from '../../constants';
 import { ExtendedDispatcher } from '../../types';
 import { ScheduleDay } from '../types';
 import { isDispatcherInTimeslot, normalizeScheduleDayToIds } from './scheduleUtils';
@@ -30,7 +30,7 @@ export function applyRoundRobinFallback(
   timeSlots.forEach((slot) => {
     let dispatcherIndex = 0;
     // Exclude UT and RELIEF from fallback; UT handled by weekly util and RELIEF is manual-only
-    columns.filter((c) => c !== 'UT' && c !== 'RELIEF').forEach((col) => {
+    columns.filter((c) => c !== 'UT' && c !== 'RELIEF' && !isCellDisabled(day, slot, c)).forEach((col) => {
       if (dispatcherIndex < availableDispatchers.length) {
         const dispatcher = availableDispatchers[dispatcherIndex];
         fallbackSchedule[slot][col] = dispatcher.id;
@@ -93,7 +93,7 @@ export function applyShiftAwareFallback(
     });
 
     // Assign across non-UT and non-RELIEF columns
-    columns.filter(c => c !== 'UT' && c !== 'RELIEF').forEach((col) => {
+    columns.filter(c => c !== 'UT' && c !== 'RELIEF' && !isCellDisabled(day, slot, c)).forEach((col) => {
       // Skip if locked already
       if (fallbackSchedule[slot][col] && fallbackSchedule[slot][col].trim().length > 0) return;
 

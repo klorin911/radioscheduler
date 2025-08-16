@@ -89,6 +89,12 @@
   background: rgba(2, 6, 23, 0.7);
 }
 
+/* Keyboard highlight state (ArrowUp/ArrowDown) */
+.dropdown-option.highlighted {
+  background: rgba(255,255,255,0.06);
+  border-left: 2px solid rgba(59, 130, 246, 0.45);
+}
+
 .dropdown-option.selected {
   background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
   border-left: 2px solid rgba(59, 130, 246, 0.65);
@@ -155,6 +161,11 @@
 /* Hover and selected states keep sufficient contrast while preserving visual affordance */
 .dropdown-option:hover {
   background: rgba(255,255,255,0.03); /* subtle lift to help the off-white text stand out */
+}
+/* Mirror keyboard highlight styling in accessibility section */
+.dropdown-option.highlighted {
+  background: rgba(255,255,255,0.06);
+  border-left: 2px solid rgba(59, 130, 246, 0.45);
 }
 .dropdown-option.selected {
   background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));

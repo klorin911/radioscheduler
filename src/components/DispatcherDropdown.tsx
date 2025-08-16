@@ -13,14 +13,17 @@ interface Props {
   day?: Day;
   timeSlot?: TimeSlot;
   column?: Column;
+  disabled?: boolean;
 }
 
-const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, className, day, timeSlot, column }) => {
+const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, className, day, timeSlot, column, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingValue, setTypingValue] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<HTMLDivElement[]>([]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -41,10 +44,33 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
     setIsOpen(false);
     setIsTyping(false);
     setTypingValue('');
+    setHighlightedIndex(null);
   }, [onChange]);
 
   // Enable typing directly on the button (including when filled)
   const handleButtonKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) {
+      event.preventDefault();
+      return;
+    }
+    // Arrow navigation when open
+    if (isOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault();
+      setIsTyping(true);
+      setIsOpen(true);
+      setHighlightedIndex(prev => {
+        const options = getFlatOptions();
+        if (options.length === 0) return null;
+        const startAt = prev === null ? (options[0]?.label === '(None)' && options.length > 1 ? 1 : 0) : prev;
+        const next =
+          event.key === 'ArrowDown'
+            ? Math.min((startAt ?? 0) + 1, options.length - 1)
+            : Math.max((startAt ?? 0) - 1, 0);
+        return next;
+      });
+      return;
+    }
+
     // Printable keys or Backspace should start/continue typing
     if ((event.key.length === 1) || event.key === 'Backspace') {
       event.preventDefault();
@@ -59,60 +85,78 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       return;
     }
 
-    // Confirm current typed value
-    if (event.key === 'Enter' && isTyping) {
-      const searchTerm = typingValue.toLowerCase().trim();
-      if (searchTerm && column !== 'UT') {
-        // Try trainer/trainee pair first (always offer pairs regardless of day/shift)
-        const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
-        for (const trainer of trainers) {
-          const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
-          const match = trainees.find(t => (
-            t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
-          ));
-          if (match) {
-            const trainerKey = trainer.name || trainer.id;
-            const traineeKey = match.name || match.id;
-            handleSelect(`${trainerKey}/${traineeKey}`);
-            event.preventDefault();
-            return;
+    // Confirm selection with Enter
+    if (event.key === 'Enter') {
+      const options = getFlatOptions();
+      if (isOpen && highlightedIndex !== null && options[highlightedIndex]) {
+        handleSelect(options[highlightedIndex].value);
+        event.preventDefault();
+        return;
+      }
+      if (isTyping) {
+        const searchTerm = typingValue.toLowerCase().trim();
+        if (searchTerm && column !== 'UT') {
+          // Try trainer/trainee pair first (always offer pairs regardless of day/shift)
+          const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
+          for (const trainer of trainers) {
+            const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
+            const match = trainees.find(t => (
+              t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
+            ));
+            if (match) {
+              const trainerKey = trainer.id;
+              const traineeKey = match.id;
+              handleSelect(`${trainerKey}/${traineeKey}`);
+              event.preventDefault();
+              return;
+            }
           }
         }
-      }
 
-      // Fallback to first matching dispatcher
-      const filtered = dispatchers.filter(d =>
-        d.id.toLowerCase().startsWith(searchTerm) || (d.name && d.name.toLowerCase().startsWith(searchTerm))
-      );
-      const match = filtered[0];
-      if (match) handleSelect(match.name || match.id);
-      event.preventDefault();
-      return;
+        // Fallback to first matching dispatcher
+        const filtered = dispatchers.filter(d =>
+          d.id.toLowerCase().startsWith(searchTerm) || (d.name && d.name.toLowerCase().startsWith(searchTerm))
+        );
+        const match = filtered[0];
+        if (match) handleSelect(match.id);
+        event.preventDefault();
+        return;
+      }
     }
 
     if (event.key === 'Escape') {
       setIsTyping(false);
       setTypingValue('');
       setIsOpen(false);
+      setHighlightedIndex(null);
       event.preventDefault();
     }
-  }, [isTyping, typingValue, dispatchers, handleSelect, column]);
+  }, [isTyping, typingValue, dispatchers, handleSelect, column, isOpen, highlightedIndex]);
 
   // When the button is clicked, open the dropdown and focus the hidden input
   // so the user can immediately start typing (no need to press Tab).
   const handleButtonClick = useCallback(() => {
+    if (disabled) return;
     setIsOpen(prev => {
       const next = !prev;
       if (next) {
         // Reset any prior typing buffer and move focus to the hidden input
         setIsTyping(false);
         setTypingValue('');
+        // initialize highlight to first dispatcher (skip None)
+        const opts = getFlatOptions();
+        if (opts.length > 0) {
+          setHighlightedIndex(opts[0]?.label === '(None)' && opts.length > 1 ? 1 : 0);
+        } else {
+          setHighlightedIndex(null);
+        }
         setTimeout(() => {
           if (inputRef.current) inputRef.current.focus();
         }, 0);
       } else {
         setIsTyping(false);
         setTypingValue('');
+        setHighlightedIndex(null);
       }
       return next;
     });
@@ -128,6 +172,24 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       }
 
       if (dropdownRef.current && dropdownRef.current.contains(document.activeElement)) {
+        // Arrow navigation when open
+        if (isOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+          event.preventDefault();
+          setIsTyping(true);
+          setIsOpen(true);
+          setHighlightedIndex(prev => {
+            const options = getFlatOptions();
+            if (options.length === 0) return null;
+            const startAt = prev === null ? (options[0]?.label === '(None)' && options.length > 1 ? 1 : 0) : prev;
+            const next =
+              event.key === 'ArrowDown'
+                ? Math.min((startAt ?? 0) + 1, options.length - 1)
+                : Math.max((startAt ?? 0) - 1, 0);
+            return next;
+          });
+          return;
+        }
+
         // Check if it's a printable character or backspace
         if ((event.key.length === 1) || event.key === 'Backspace') {
           event.preventDefault();
@@ -153,41 +215,50 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
           if (inputRef.current) {
             inputRef.current.focus();
           }
-        } else if (event.key === 'Enter' && isTyping) {
-          // First, try to match a trainer/trainee pair when searching by trainee
-          const searchTerm = typingValue.toLowerCase().trim();
-          if (searchTerm && column !== 'UT') {
-            // Trainers only (always consider all their trainees)
-            const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
-            for (const trainer of trainers) {
-              const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
-              const match = trainees.find(t => (
-                t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
-              ));
-              if (match) {
-                const trainerKey = trainer.name || trainer.id;
-                const traineeKey = match.name || match.id;
-                handleSelect(`${trainerKey}/${traineeKey}`);
-                event.preventDefault();
-                return;
+        } else if (event.key === 'Enter') {
+          const options = getFlatOptions();
+          if (isOpen && highlightedIndex !== null && options[highlightedIndex]) {
+            handleSelect(options[highlightedIndex].value);
+            event.preventDefault();
+            return;
+          }
+          if (isTyping) {
+            // First, try to match a trainer/trainee pair when searching by trainee
+            const searchTerm = typingValue.toLowerCase().trim();
+            if (searchTerm && column !== 'UT') {
+              // Trainers only (always consider all their trainees)
+              const trainers = dispatchers.filter(d => !(d.isTrainee || d.traineeOf));
+              for (const trainer of trainers) {
+                const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === trainer.id);
+                const match = trainees.find(t => (
+                  t.id.toLowerCase().startsWith(searchTerm) || (t.name || '').toLowerCase().startsWith(searchTerm)
+                ));
+                if (match) {
+                  const trainerKey = trainer.id;
+                  const traineeKey = match.id;
+                  handleSelect(`${trainerKey}/${traineeKey}`);
+                  event.preventDefault();
+                  return;
+                }
               }
             }
-          }
 
-          // Fall back to first matching dispatcher (including trainees) by ID or name
-          const filteredDispatchers = dispatchers.filter(dispatcher => 
-            dispatcher.id.toLowerCase().startsWith(searchTerm) ||
-            (dispatcher.name && dispatcher.name.toLowerCase().startsWith(searchTerm))
-          );
-          const matchingDispatcher = filteredDispatchers[0];
-          if (matchingDispatcher) {
-            handleSelect(matchingDispatcher.name || matchingDispatcher.id);
+            // Fall back to first matching dispatcher (including trainees) by ID or name
+            const filteredDispatchers = dispatchers.filter(dispatcher =>
+              dispatcher.id.toLowerCase().startsWith(searchTerm) ||
+              (dispatcher.name && dispatcher.name.toLowerCase().startsWith(searchTerm))
+            );
+            const matchingDispatcher = filteredDispatchers[0];
+            if (matchingDispatcher) {
+              handleSelect(matchingDispatcher.id);
+            }
+            event.preventDefault();
           }
-          event.preventDefault();
         } else if (event.key === 'Escape') {
           setIsTyping(false);
           setTypingValue('');
           setIsOpen(false);
+          setHighlightedIndex(null);
           event.preventDefault();
         }
       }
@@ -195,7 +266,7 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isTyping, typingValue, dispatchers, handleSelect, day, timeSlot, column]);
+  }, [isTyping, typingValue, dispatchers, handleSelect, day, timeSlot, column, isOpen, highlightedIndex]);
 
   const getFilteredDispatchers = () => {
     // If no typing value, show all dispatchers (trainers and trainees)
@@ -248,6 +319,62 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
   const selectedDispatcher = value ? getDispatcherByName(value) : null;
   const filteredDispatchers = getFilteredDispatchers();
 
+  // Compute effective shift for selected dispatcher (show trainer's shift if trainee follows trainer)
+  const selectedEffectiveShift = useMemo(() => {
+    if (!selectedDispatcher) return undefined;
+    if (selectedDispatcher.isTrainee && selectedDispatcher.followTrainerSchedule && selectedDispatcher.traineeOf) {
+      const trainer = dispatchers.find(d => d.id === selectedDispatcher.traineeOf);
+      return trainer?.shift || selectedDispatcher.shift;
+    }
+    return selectedDispatcher.shift;
+  }, [selectedDispatcher, dispatchers]);
+
+  // Build a flat list of options (for keyboard navigation)
+  const getFlatOptions = useCallback(() => {
+    type FlatOption = { key: string; label: string; value: string };
+    const flat: FlatOption[] = [];
+    flat.push({ key: 'none', label: '(None)', value: '' });
+
+    filteredDispatchers.forEach((dispatcher) => {
+      const name = dispatcher.name || dispatcher.id;
+      const uniqueKey = `${dispatcher.badgeNumber}-${dispatcher.id}`;
+      flat.push({
+        key: `d-${uniqueKey}`,
+        label: dispatcher.id,
+        value: dispatcher.id,
+      });
+
+      // Build trainee pairs (skip UT column)
+      if (column !== 'UT') {
+        let trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
+        if (typingValue && typingValue.trim()) {
+          const st = typingValue.toLowerCase().trim();
+          const trainerMatches =
+            dispatcher.id.toLowerCase().startsWith(st) ||
+            (dispatcher.name || '').toLowerCase().startsWith(st);
+          if (!trainerMatches) {
+            trainees = trainees.filter(
+              t =>
+                t.id.toLowerCase().startsWith(st) ||
+                (t.name || '').toLowerCase().startsWith(st)
+            );
+          }
+        }
+        trainees.forEach((t) => {
+          const pairValue = `${dispatcher.id}/${t.id}`;
+          const pairDisplay = `${dispatcher.id}/${t.id}`;
+          flat.push({
+            key: `pair-${uniqueKey}-${t.badgeNumber}-${t.id}`,
+            label: pairDisplay,
+            value: pairValue,
+          });
+        });
+      }
+    });
+
+    return flat;
+  }, [filteredDispatchers, dispatchers, typingValue, column]);
+
   // Compute trainee label overlay for trainer selections in radio columns
   const displayLabel = useMemo(() => {
     // While typing, show what the user types
@@ -269,8 +396,30 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
     return selectedDispatcher.id;
   }, [selectedDispatcher, isTyping, typingValue, value, dispatchers]);
 
+  // Keep highlighted option scrolled into view
+  useEffect(() => {
+    if (highlightedIndex === null) return;
+    const el = optionRefs.current[highlightedIndex];
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex]);
+
+  // When options list changes (e.g., user types), reset highlight to first valid row
+  useEffect(() => {
+    if (!isOpen) return;
+    const opts = getFlatOptions();
+    if (opts.length === 0) {
+      setHighlightedIndex(null);
+      return;
+    }
+    // Prefer first non-(None) row if available
+    const first = opts[0]?.label === '(None)' && opts.length > 1 ? 1 : 0;
+    setHighlightedIndex(first);
+  }, [typingValue, filteredDispatchers, isOpen, getFlatOptions]);
+
   return (
-    <div className={`dispatcher-dropdown ${className || ''}`} ref={dropdownRef}>
+    <div className={`dispatcher-dropdown ${className || ''} ${disabled ? 'disabled' : ''}`} ref={dropdownRef}>
       {/* Hidden input for typing functionality */}
       <input
         ref={inputRef}
@@ -287,12 +436,13 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       
       {/* Current selection - show tooltip only when dropdown is closed */}
       {!isOpen && selectedDispatcher ? (
-        <DispatcherTooltip dispatcher={selectedDispatcher}>
+        <DispatcherTooltip dispatcher={selectedDispatcher} effectiveShift={selectedEffectiveShift}>
           <button
-            className="dropdown-button filled"
+            className={`dropdown-button filled ${disabled ? 'disabled' : ''}`}
             onClick={handleButtonClick}
             onKeyDown={handleButtonKeyDown}
             tabIndex={0}
+            disabled={!!disabled}
           >
             {displayLabel}
             <span className="dropdown-arrow">▼</span>
@@ -300,10 +450,11 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
         </DispatcherTooltip>
       ) : (
         <button
-          className={`dropdown-button ${value ? 'filled' : 'empty'}`}
+          className={`dropdown-button ${value ? 'filled' : 'empty'} ${disabled ? 'disabled' : ''}`}
           onClick={handleButtonClick}
           onKeyDown={handleButtonKeyDown}
           tabIndex={0}
+          disabled={!!disabled}
         >
           {isTyping ? typingValue : displayLabel}
           <span className="dropdown-arrow">▼</span>
@@ -311,78 +462,60 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       )}
 
       {/* Dropdown options */}
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="dropdown-options">
-          <div
-            className="dropdown-option"
-            onClick={() => handleSelect('')}
-          >
-            <span>(None)</span>
-          </div>
-          {filteredDispatchers.length > 0 ? (
-            filteredDispatchers.map((dispatcher) => {
-              const name = dispatcher.name || dispatcher.id;
-              // Use badgeNumber + ID as unique key since names can be duplicated
-              const uniqueKey = `${dispatcher.badgeNumber}-${dispatcher.id}`;
-
-              // Helper to compute trainee list for this trainer (always offer pairs; exclude UT)
-              const presentTrainees = (() => {
-                if (column === 'UT') return [] as ExtendedDispatcher[];
-                let pts = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
-                // Typing behavior:
-                // - If trainer matches the query, show ALL of their trainees (so "JDU" shows JDUK/GMOO).
-                // - Otherwise, show only trainees that match the query.
-                if (typingValue && typingValue.trim()) {
-                  const st = typingValue.toLowerCase().trim();
-                  const trainerMatches =
-                    dispatcher.id.toLowerCase().startsWith(st) ||
-                    (dispatcher.name || '').toLowerCase().startsWith(st);
-                  if (!trainerMatches) {
-                    pts = pts.filter(
-                      t =>
-                        t.id.toLowerCase().startsWith(st) ||
-                        (t.name || '').toLowerCase().startsWith(st)
-                    );
-                  }
-                }
-                return pts;
-              })();
-
+          {(() => {
+            const flat = getFlatOptions();
+            if (flat.length === 0) {
               return (
-                <React.Fragment key={uniqueKey}>
-                  <DispatcherTooltip dispatcher={dispatcher}>
-                    <div
-                      className={`dropdown-option ${value === name ? 'selected' : ''}`}
-                      onClick={() => handleSelect(name)}
-                    >
-                      <span>{dispatcher.id}</span>
-                    </div>
-                  </DispatcherTooltip>
-
-                  {/* Trainer-with-trainee options (one per present trainee) */}
-                  {presentTrainees.map((t) => {
-                    const traineeLabelId = t.id;
-                    const pairValue = `${name}/${t.name || t.id}`; // store as names when available
-                    const pairDisplay = `${dispatcher.id}/${traineeLabelId}`; // show IDs in UI
-                    const pairKey = `${uniqueKey}-pair-${t.badgeNumber}-${t.id}`;
-                    return (
-                      <div
-                        key={pairKey}
-                        className={`dropdown-option ${value === pairValue ? 'selected' : ''}`}
-                        onClick={() => handleSelect(pairValue)}
-                      >
-                        <span>{pairDisplay}</span>
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
+                <div className="dropdown-option disabled">
+                  <span>No matches found</span>
+                </div>
               );
-            })
-          ) : isTyping && typingValue.trim() && (
-            <div className="dropdown-option disabled">
-              <span>No matches found</span>
-            </div>
-          )}
+            }
+            return flat.map((opt, idx) => {
+              const isSelected = value === opt.value;
+              const isHighlighted = highlightedIndex === idx;
+              const refCb = (el: HTMLDivElement | null) => {
+                if (el) optionRefs.current[idx] = el;
+              };
+              // Wrap dispatcher rows with tooltip when applicable (not for (None) and not for pairs)
+              const baseId = opt.label.includes('/') ? opt.label.split('/')[0] : opt.label;
+              const dispatcherForTooltip = dispatchers.find(d => d.id === baseId);
+
+              const content = (
+                <div
+                  ref={refCb}
+                  key={opt.key}
+                  className={`dropdown-option ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}`}
+                  data-index={idx}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  onClick={() => handleSelect(opt.value)}
+                >
+                  <span>{opt.label}</span>
+                </div>
+              );
+
+              if (dispatcherForTooltip && opt.label !== '(None)' && !opt.label.includes('/')) {
+                return (
+                  <DispatcherTooltip
+                    key={opt.key}
+                    dispatcher={dispatcherForTooltip}
+                    effectiveShift={
+                      dispatcherForTooltip.isTrainee &&
+                      dispatcherForTooltip.followTrainerSchedule &&
+                      !!dispatcherForTooltip.traineeOf
+                        ? (dispatchers.find(d => d.id === dispatcherForTooltip.traineeOf)?.shift || dispatcherForTooltip.shift)
+                        : dispatcherForTooltip.shift
+                    }
+                  >
+                    {content}
+                  </DispatcherTooltip>
+                );
+              }
+              return content;
+            });
+          })()}
         </div>
       )}
     </div>

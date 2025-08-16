@@ -1,4 +1,4 @@
-import { Day, TimeSlot, Column, columns, timeSlots } from '../../constants';
+import { Day, TimeSlot, Column, columns, timeSlots, isCellDisabled } from '../../constants';
 import { ExtendedDispatcher, extractBadgeNumber } from '../../types';
 import { ScheduleDay, Assignment, AssignmentResult } from '../types';
 import { getEligibleSlots } from './shiftUtils';
@@ -154,8 +154,13 @@ export function assignMinimumSlot(
   for (const slot of sortedEligibleSlots) {
     if (isDispatcherInTimeslot(dispatcherKey, schedule, slot)) continue;
 
-    // Find candidate columns: non-UT, empty
-    const candidateCols = columns.filter((c) => c !== 'UT' && c !== 'RELIEF' && !schedule[slot][c]);
+    // Find candidate columns: non-UT, empty, and not disabled by business rule
+    const candidateCols = columns.filter((c) =>
+      c !== 'UT' &&
+      c !== 'RELIEF' &&
+      !schedule[slot][c] &&
+      !isCellDisabled(day, slot, c)
+    );
     if (candidateCols.length === 0) continue;
 
     // Pick least-used column for the day (tie-breaker: original order)
@@ -193,6 +198,8 @@ export function assignPreferredSlot(
 
   const dispatcherKey = dispatcher.id;
   for (const a of preferredAssignments) {
+    // Respect business rule: skip disabled cells (e.g., MT blocked times)
+    if (isCellDisabled(day, a.slot, a.col)) continue;
     // Ensure dispatcher is not already in the chosen timeslot
     if (isDispatcherInTimeslot(dispatcherKey, schedule, a.slot)) continue;
     // Re-check that the target cell is still empty (schedule may have changed since generation)
@@ -230,7 +237,8 @@ export function assignExtraRadioSlot(
     for (const assignment of preferredAssignments) {
       if (
         schedule[assignment.slot][assignment.col] === '' &&
-        !isDispatcherInTimeslot(dispatcherKey, schedule, assignment.slot)
+        !isDispatcherInTimeslot(dispatcherKey, schedule, assignment.slot) &&
+        !isCellDisabled(day, assignment.slot, assignment.col)
       ) {
         schedule[assignment.slot][assignment.col] = dispatcherKey;
         log(
@@ -268,7 +276,12 @@ export function assignExtraRadioSlot(
   for (const slot of sortedEligibleSlots) {
     if (isDispatcherInTimeslot(dispatcherKey, schedule, slot)) continue;
 
-    const candidateCols = columns.filter((c) => c !== 'UT' && c !== 'RELIEF' && !schedule[slot][c]);
+    const candidateCols = columns.filter((c) =>
+      c !== 'UT' &&
+      c !== 'RELIEF' &&
+      !schedule[slot][c] &&
+      !isCellDisabled(day, slot, c)
+    );
     if (candidateCols.length === 0) continue;
 
     candidateCols.sort((c1, c2) => (colFillCount[c1] || 0) - (colFillCount[c2] || 0));

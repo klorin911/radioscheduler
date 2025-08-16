@@ -54,6 +54,20 @@
   padding: 6px 10px;
 }
 
+/* Disabled cell styling for business-rule-blocked cells (e.g., MT blackout) */
+.schedule-cell.disabled-cell {
+  background: rgba(148, 163, 184, 0.12); /* slate-300 at low opacity */
+}
+.schedule-cell.disabled-cell .dropdown-button {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+.schedule-cell.disabled-cell .dropdown-button:hover {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
 .schedule-table th {
   background: var(--panel-bg);
   color: var(--text);
@@ -85,4 +99,73 @@
 .dispatcher-tooltip-container {
   width: 100%;
   display: block;
+}
+
+/* === Daily Counts color coding === */
+/* Legend */
+.counts-legend {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0 10px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.swatch.zero { background: #EF4444; border-color: rgba(239, 68, 68, 0.7); }
+.swatch.one { background: #86EFAC; border-color: rgba(134, 239, 172, 0.7); }
+.swatch.two { background: #22C55E; border-color: rgba(34, 197, 94, 0.7); }
+.swatch.three-plus { background: #15803D; border-color: rgba(21, 128, 61, 0.7); }
+
+/* Count pill variants */
+.count-pill--zero {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.12)) !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
+  color: #fff !important;
+}
+.count-pill--zero:hover {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.24), rgba(239, 68, 68, 0.16)) !important;
+  border-color: rgba(239, 68, 68, 0.75) !important;
+}
+
+.count-pill--one {
+  background: linear-gradient(180deg, rgba(134, 239, 172, 0.18), rgba(134, 239, 172, 0.12)) !important;
+  border: 1px solid rgba(134, 239, 172, 0.55) !important;
+  color: #fff !important;
+}
+.count-pill--one:hover {
+  background: linear-gradient(180deg, rgba(134, 239, 172, 0.24), rgba(134, 239, 172, 0.16)) !important;
+  border-color: rgba(134, 239, 172, 0.75) !important;
+}
+
+.count-pill--two {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.20), rgba(34, 197, 94, 0.14)) !important;
+  border: 1px solid rgba(34, 197, 94, 0.60) !important;
+  color: #fff !important;
+}
+.count-pill--two:hover {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.26), rgba(34, 197, 94, 0.18)) !important;
+  border-color: rgba(34, 197, 94, 0.80) !important;
+}
+
+.count-pill--three-plus {
+  background: linear-gradient(180deg, rgba(21, 128, 61, 0.20), rgba(21, 128, 61, 0.14)) !important;
+  border: 1px solid rgba(21, 128, 61, 0.60) !important;
+  color: #fff !important;
+}
+.count-pill--three-plus:hover {
+  background: linear-gradient(180deg, rgba(21, 128, 61, 0.26), rgba(21, 128, 61, 0.18)) !important;
+  border-color: rgba(21, 128, 61, 0.80) !important;
 }

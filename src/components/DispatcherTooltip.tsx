@@ -5,9 +5,10 @@ import '../styles/tooltip.css';
 interface Props {
   dispatcher: ExtendedDispatcher;
   children: React.ReactNode;
+  effectiveShift?: string;
 }
 
-const DispatcherTooltip: React.FC<Props> = ({ dispatcher, children }) => {
+const DispatcherTooltip: React.FC<Props> = ({ dispatcher, children, effectiveShift }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,10 +58,10 @@ const DispatcherTooltip: React.FC<Props> = ({ dispatcher, children }) => {
               <span className="tooltip-label">Work Days:</span>
               <span className="tooltip-value">{formatList(dispatcher.workDays, 'All days')}</span>
             </div>
-            {dispatcher.shift && (
+            {(effectiveShift || dispatcher.shift) && (
               <div className="tooltip-row">
                 <span className="tooltip-label">Shift:</span>
-                <span className="tooltip-value">{dispatcher.shift}</span>
+                <span className="tooltip-value">{effectiveShift || dispatcher.shift}</span>
               </div>
             )}
             <div className="tooltip-row">
