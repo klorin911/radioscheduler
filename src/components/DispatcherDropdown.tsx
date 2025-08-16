@@ -336,7 +336,7 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
     flat.push({ key: 'none', label: '(None)', value: '' });
 
     filteredDispatchers.forEach((dispatcher) => {
-      const name = dispatcher.name || dispatcher.id;
+      
       const uniqueKey = `${dispatcher.badgeNumber}-${dispatcher.id}`;
       flat.push({
         key: `d-${uniqueKey}`,
