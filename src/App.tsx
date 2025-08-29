@@ -166,8 +166,14 @@ function App() {
         theme: 'grid',
         showHead: true,
         // Black out disabled MT cells in PDF export
-        didParseCell: (data: any) => {
-          const { cell, row, column } = data || {};
+        didParseCell: (data: unknown) => {
+          type CellStyles = { fillColor?: [number, number, number]; textColor?: [number, number, number] };
+          type Parsed = {
+            cell?: { section?: string; styles: CellStyles };
+            row?: { index: number };
+            column?: { index: number };
+          };
+          const { cell, row, column } = (data as Parsed) || {};
           // Only body cells, valid MT column present
           if (!cell || !row || !column) return;
           if (cell.section !== 'body') return;

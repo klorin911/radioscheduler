@@ -86,6 +86,24 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
     onChange(copy);
   };
 
+  // Rotate each dispatcher's selected work days forward by one day (Mon->Tue, ..., Sun->Mon)
+  const rotateAllWorkDaysForward = () => {
+    const nextDay = (day: string): string => {
+      const idx = weekDays.indexOf(day);
+      if (idx === -1) return day;
+      return weekDays[(idx + 1) % weekDays.length];
+    };
+    const rotated = dispatchers.map((d) => {
+      const days = d.workDays || [];
+      if (!Array.isArray(days) || days.length === 0) return d;
+      const newDays = days.map(nextDay);
+      // Keep unique and stable order based on weekDays sequence
+      const uniqueOrdered = weekDays.filter((wd) => newDays.includes(wd));
+      return { ...d, workDays: uniqueOrdered } as ExtendedDispatcher;
+    });
+    onChange(rotated);
+  };
+
   const toggleWorkDay = (index: number, day: string) => {
     const current = dispatchers[index].workDays || [];
     const updated = current.includes(day) 
@@ -144,6 +162,19 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
+          <button
+            onClick={() => {
+              if (confirm('Rotate all selected work days forward by one (Mon→Tue, …, Sun→Mon)?')) {
+                rotateAllWorkDaysForward();
+                // Collapse cards for a cleaner view after bulk update
+                setExpandedCard(null);
+              }
+            }}
+            className="add-dispatcher-btn"
+            title="Shifts everyone\'s selected work days forward by one day"
+          >
+            Rotate Work Days +1
+          </button>
           <button
             onClick={() => {
               setNewShortName('');
