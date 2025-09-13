@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ExtendedDispatcher } from '../types';
+import { ExtendedDispatcher } from '../appTypes';
 import '../styles/manage-dispatchers.css';
 
 interface Props {

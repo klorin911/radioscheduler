@@ -30,3 +30,4 @@ export interface AssignmentResult extends OperationResult {
   assignment?: Assignment;
   dispatcherKey?: string;
 }
+

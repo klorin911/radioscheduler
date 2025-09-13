@@ -1,10 +1,10 @@
 import { days, Day, Schedule } from '../constants';
-import { ExtendedDispatcher } from '../types';
+import { ExtendedDispatcher } from '../appTypes';
 import { generateScheduleForDay } from './dayScheduler';
-import { ScheduleDay } from './types';
+import { ScheduleDay } from './solverTypes';
 import { assignUTSlots } from './utils/utAssignmentUtils';
-import { cloneScheduleDay, mergeScheduleDays, hasAnyAssignments, normalizeScheduleWeekToIds } from './utils/scheduleUtils';
-import { applyShiftAwareFallback } from './utils/fallbackUtils.ts';
+import { cloneScheduleDay, mergeScheduleDays, hasAnyAssignments, normalizeScheduleWeekToIds } from './utils/scheduleOps';
+import { applyShiftAwareFallback } from './utils/fallbackUtils';
 
 export async function generateWeeklySchedule(
   current: Schedule,
@@ -16,7 +16,7 @@ export async function generateWeeklySchedule(
   
   // Process each day
   for (const day of days) {
-    const dayResult = await processDaySchedule(day as Day, dispatchers, current[day]);
+    const dayResult = await processDaySchedule(day, dispatchers, current[day]);
     newSchedule[day] = dayResult;
   }
   
@@ -24,7 +24,7 @@ export async function generateWeeklySchedule(
   const normalized = normalizeScheduleWeekToIds(newSchedule, dispatchers);
   assignUTSlots(normalized, dispatchers);
   // Replace newSchedule with normalized (mutated by UT assignment)
-  (Object.keys(normalized) as Array<keyof Schedule>).forEach((d) => {
+  days.forEach((d) => {
     newSchedule[d] = normalized[d];
   });
   
@@ -52,8 +52,8 @@ async function processDaySchedule(
   currentDaySchedule: ScheduleDay
 ): Promise<ScheduleDay> {
   console.log(`[WeekScheduler] Processing ${day}`);
-  
-  // Generate new schedule for the day
+
+  // Generate new schedule for the day using the current schedule as locked
   const solvedDay = await generateScheduleForDay(day, dispatchers, currentDaySchedule);
   
   // Merge with existing schedule (solved takes precedence for non-empty values)

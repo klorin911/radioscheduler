@@ -2,7 +2,7 @@
 // The actual implementation has been moved to more focused, modular files
 
 // Re-export types for backward compatibility
-export type { ScheduleDay, Assignment } from './types';
+export type { ScheduleDay, Assignment } from './solverTypes';
 
 // Re-export main functions for backward compatibility
 export { generateScheduleForDay } from './dayScheduler';

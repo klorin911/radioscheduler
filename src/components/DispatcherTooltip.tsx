@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ExtendedDispatcher } from '../types';
+import { ExtendedDispatcher } from '../appTypes';
 import '../styles/tooltip.css';
 
 interface Props {

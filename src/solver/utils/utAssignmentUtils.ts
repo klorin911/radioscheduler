@@ -1,8 +1,8 @@
 import { Day, TimeSlot, timeSlots } from '../../constants';
-import { ExtendedDispatcher, extractBadgeNumber } from '../../types';
-import { ScheduleDay } from '../types';
+import { ExtendedDispatcher, extractBadgeNumber } from '../../appTypes';
+import { ScheduleDay } from '../solverTypes';
 import { getEligibleSlots, SHIFT_SLOTS } from './shiftUtils';
-import { isDispatcherInTimeslot } from './scheduleUtils';
+import { isDispatcherInTimeslot } from './scheduleOps';
 
 // Debug logging toggle for UT assignment
 const DEBUG = false;
@@ -270,35 +270,4 @@ function assignExtraUTSlots(
 /**
  * Counts UT assignments for a dispatcher across the week
  */
-export function countUTAssignments(
-  weekSchedule: Record<Day, ScheduleDay>,
-  dispatcherKey: string
-): number {
-  let count = 0;
-  Object.values(weekSchedule).forEach(daySchedule => {
-    timeSlots.forEach(slot => {
-      if (daySchedule[slot]['UT'] === dispatcherKey) {
-        count++;
-      }
-    });
-  });
-  return count;
-}
-
-/**
- * Gets all UT assignments for a dispatcher across the week
- */
-export function getUTAssignments(
-  weekSchedule: Record<Day, ScheduleDay>,
-  dispatcherKey: string
-): Array<{ day: Day; slot: string }> {
-  const assignments: Array<{ day: Day; slot: string }> = [];
-  Object.entries(weekSchedule).forEach(([dayName, daySchedule]) => {
-    timeSlots.forEach(slot => {
-      if (daySchedule[slot]['UT'] === dispatcherKey) {
-        assignments.push({ day: dayName as Day, slot });
-      }
-    });
-  });
-  return assignments;
-}
+// Removed unused: countUTAssignments, getUTAssignments

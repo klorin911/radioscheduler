@@ -93,6 +93,21 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
   const onScheduleChange = (day: Day, timeSlot: TimeSlot, column: Column, value: string) => {
     // Prevent writes to disabled cells
     if (isCellDisabled(day, timeSlot, column)) return;
+
+    // Enforce day eligibility (including E/F spillover cutoff like F not after 0730 on first day off)
+    // Parse participants (supports trainer/trainee pairs "A/B")
+    const participants = resolveParticipants(value);
+    if (participants.length > 0) {
+      const trainer = participants[0];
+      const trainee = participants.length > 1 ? participants[1] : undefined;
+      const violatesDayEligibility = participants.some((person) => {
+        const trainerForTrainee = person.followTrainerSchedule && trainee && person === trainee ? trainer : undefined;
+        const dayOk = isEligibleOnDayForSlot(person, day, timeSlot, trainerForTrainee);
+        return !dayOk;
+      });
+      if (violatesDayEligibility) return;
+    }
+
     onChange(day, timeSlot, column, value);
   };
 

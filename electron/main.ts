@@ -3,7 +3,7 @@ import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
-import type { Dispatcher } from '../src/types'
+import type { Dispatcher } from '../src/appTypes'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 

@@ -7,7 +7,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 type IpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
 
 // Import types for proper typing
-import type { Dispatcher } from '../src/types';
+import type { Dispatcher } from '../src/appTypes';
 
 
 

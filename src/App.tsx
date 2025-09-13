@@ -4,12 +4,12 @@ import './styles/layout.css';
 import './styles/manage-dispatchers.css';
 import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots, isCellDisabled } from './constants';
 
-import { ExtendedDispatcher } from './types';
+import { ExtendedDispatcher } from './appTypes';
 import ManageDispatchers from './components/ManageDispatchers';
 import ScheduleTable from './components/ScheduleTable';
-import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './scheduleUtils';
+import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './appStorage';
 import { generateWeeklySchedule } from './solver/weekScheduler';
-import { countSlotsPerDispatcher } from './solver/utils/scheduleUtils';
+import { countSlotsPerDispatcher } from './solver/utils/scheduleOps';
 
 const MAX_HISTORY = 50;
 

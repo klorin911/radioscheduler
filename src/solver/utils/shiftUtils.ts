@@ -45,6 +45,10 @@ export function getPreviousDay(day: Day): Day {
 const OVERNIGHT_SLOTS_E: ReadonlyArray<TimeSlot> = ['2330-0130', '0130-0330'];
 const OVERNIGHT_SLOTS_F: ReadonlyArray<TimeSlot> = ['2330-0130', '0130-0330', '0330-0530', '0530-0730'];
 
+// Relative-to-displayed-day semantics: which slots visually belong to the NEXT calendar day
+// In the UI, rows '2330-0130' and '0130-0330' on a given day column are technically part of the next calendar day.
+const NEXT_DAY_RELATIVE_SLOTS: ReadonlySet<TimeSlot> = new Set<TimeSlot>(['2330-0130', '0130-0330']);
+
 /**
  * Checks if a next-day time slot counts as spillover for a given shift (E or F).
  */
@@ -85,9 +89,16 @@ export function isEligibleOnDayForSlot(
   // Same calendar day is always valid
   if (effectiveDays.includes(day)) return true;
 
-  // Allow overnight spillover for E/F shifts into the next calendar day
+  // Allow overnight spillover for E/F shifts into the next calendar day, but only for slots
+  // that are part of the current day's early morning (not rows that visually belong to the next day).
   const prev = getPreviousDay(day);
-  if (effectiveShift && isSpilloverSlotForShift(effectiveShift, slot) && effectiveDays.includes(prev)) {
+  if (
+    effectiveShift &&
+    isSpilloverSlotForShift(effectiveShift, slot) &&
+    effectiveDays.includes(prev) &&
+    // Block selections like 0130 on "Tuesday" (technically Wednesday)
+    !NEXT_DAY_RELATIVE_SLOTS.has(slot)
+  ) {
     return true;
   }
 

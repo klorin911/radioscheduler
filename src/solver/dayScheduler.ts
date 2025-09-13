@@ -1,7 +1,8 @@
-import { Day } from '../constants';
-import { ExtendedDispatcher } from '../types';
-import { ScheduleDay } from './types';
-import { createEmptyScheduleDay, cloneScheduleDay, normalizeScheduleDayToIds } from './utils/scheduleUtils';
+import { Day, timeSlots, columns, isCellDisabled, Column, TimeSlot } from '../constants';
+import { ExtendedDispatcher } from '../appTypes';
+import { ScheduleDay } from './solverTypes';
+import { createEmptyScheduleDay, cloneScheduleDay, normalizeScheduleDayToIds, findDispatcherByIdentifier } from './utils/scheduleOps';
+import { isEligibleOnDayForSlot, isSlotInShift } from './utils/shiftUtils';
 import { prepareDispatchers, assignMinimumSlot, assignPreferredSlot, assignExtraRadioSlot, hasPreferences } from './utils/assignmentUtils';
 
 // Debug logging toggle for day scheduler
@@ -33,6 +34,9 @@ export async function generateScheduleForDay(
   // Start with existing locked assignments or create empty schedule, then normalize to IDs
   let schedule: ScheduleDay = locked ? cloneScheduleDay(locked) : createEmptyScheduleDay();
   schedule = normalizeScheduleDayToIds(schedule, dispatchers);
+
+  // Sanitize any pre-existing invalid assignments so auto-schedule doesn't leave red cells
+  schedule = sanitizeLockedAssignments(day, schedule, dispatchers);
   
   // Prepare dispatchers (filter and sort by seniority)
   const sortedDispatchers = prepareDispatchers(dispatchers, day);
@@ -125,4 +129,75 @@ function processExtraRadioAssignments(
   }
   
   return { assigned: assignedCount, failed: failedCount };
+}
+
+/**
+ * Remove invalid existing assignments before scheduling (day/shift violations, disabled cells, duplicates within a timeslot)
+ */
+function sanitizeLockedAssignments(
+  day: Day,
+  schedule: ScheduleDay,
+  dispatchers: ExtendedDispatcher[]
+): ScheduleDay {
+  const sanitized = cloneScheduleDay(schedule);
+
+  // Track trainer IDs already used in a given timeslot to prevent duplicates across columns
+  const seenBySlot: Record<TimeSlot, Set<string>> = {} as Record<TimeSlot, Set<string>>;
+  timeSlots.forEach((slot) => { seenBySlot[slot] = new Set<string>(); });
+
+  const resolveParticipants = (value: string): ExtendedDispatcher[] => {
+    if (!value) return [];
+    const parts = value.includes('/') ? value.split('/').map(s => s.trim()) : [value.trim()];
+    return parts
+      .map((id) => findDispatcherByIdentifier(id, dispatchers))
+      .filter((d): d is ExtendedDispatcher => !!d);
+  };
+
+  timeSlots.forEach((slot) => {
+    const seen = seenBySlot[slot];
+    columns.forEach((col: Column) => {
+      const val = sanitized[slot][col];
+      if (!val) return;
+
+      // Block disabled cells outright
+      if (isCellDisabled(day, slot, col)) {
+        sanitized[slot][col] = '';
+        return;
+      }
+
+      const participants = resolveParticipants(val);
+      if (participants.length === 0) {
+        // Unresolvable entry -> clear
+        sanitized[slot][col] = '';
+        return;
+      }
+
+      const trainer = participants[0];
+      const trainee = participants.length > 1 ? participants[1] : undefined;
+
+      // Validate day and shift for each participant (trainee may follow trainer)
+      let valid = true;
+      for (const person of participants) {
+        const trainerRef = person.followTrainerSchedule && trainee && person === trainee ? trainer : undefined;
+        const dayOk = isEligibleOnDayForSlot(person, day, slot, trainerRef);
+        const shiftSubject = trainerRef && trainerRef.shift ? { ...person, shift: trainerRef.shift } : person;
+        const shiftOk = isSlotInShift(shiftSubject as ExtendedDispatcher, slot);
+        if (!(dayOk && shiftOk)) { valid = false; break; }
+      }
+
+      // Prevent duplicates of the trainer across columns within the same timeslot
+      const trainerKey = trainer.id;
+      if (seen.has(trainerKey)) valid = false;
+
+      if (!valid) {
+        sanitized[slot][col] = '';
+        return;
+      }
+
+      // Mark trainer as used in this slot
+      seen.add(trainerKey);
+    });
+  });
+
+  return sanitized;
 }

@@ -1,6 +1,6 @@
 import { TimeSlot, Column, timeSlots, columns, days, Schedule } from '../../constants';
-import { ExtendedDispatcher } from '../../types';
-import { ScheduleDay, OperationResult } from '../types';
+import { ExtendedDispatcher } from '../../appTypes';
+import { ScheduleDay } from '../solverTypes';
 
 /**
  * Creates a deep clone of a schedule day without using JSON methods
@@ -85,22 +85,6 @@ export function hasAnyAssignments(day: ScheduleDay): boolean {
 /**
  * Counts the number of assignments for a specific dispatcher in a day
  */
-export function countDispatcherAssignments(
-  day: ScheduleDay, 
-  dispatcherKey: string, 
-  excludeColumns: Column[] = []
-): number {
-  let count = 0;
-  timeSlots.forEach(slot => {
-    columns.forEach(col => {
-      if (!excludeColumns.includes(col) && day[slot][col] === dispatcherKey) {
-        count++;
-      }
-    });
-  });
-  return count;
-}
-
 /**
  * Checks if a dispatcher is assigned to any column at a specific time slot
  */
@@ -115,71 +99,6 @@ export function isDispatcherInTimeslot(
     const parts = cell.split('/').map(p => p.trim()).filter(Boolean);
     return parts.includes(dispatcherKey);
   });
-}
-
-/**
- * Finds the first available slot (any column) from a list of time slots
- */
-export function findFirstAvailableSlot(
-  slots: TimeSlot[],
-  schedule: ScheduleDay
-): { slot: TimeSlot; col: Column } | null {
-  for (const slot of slots) {
-    for (const col of columns) {
-      if (!schedule[slot][col]) {
-        return { slot, col };
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Validates that a schedule day has the correct structure
- */
-export function validateScheduleDay(day: ScheduleDay): OperationResult {
-  try {
-    for (const slot of timeSlots) {
-      if (!day[slot]) {
-        return { success: false, error: `Missing slot: ${slot}` };
-      }
-      // Structural + semantic checks per slot
-      const seen = new Set<string>();
-      const seenParticipants = new Set<string>();
-      for (const col of columns) {
-        if (day[slot][col] === undefined) {
-          return { success: false, error: `Missing column ${col} in slot ${slot}` };
-        }
-        const value = day[slot][col];
-        if (typeof value !== 'string') {
-          return { success: false, error: `Invalid value type at ${slot}/${col}` };
-        }
-        // Reject whitespace-only values
-        if (value.length > 0 && value.trim().length === 0) {
-          return { success: false, error: `Whitespace-only value at ${slot}/${col}` };
-        }
-        const trimmed = value.trim();
-        if (trimmed.length > 0) {
-          if (seen.has(trimmed)) {
-            return { success: false, error: `Duplicate assignment in ${slot}: ${trimmed} appears in multiple columns` };
-          }
-          seen.add(trimmed);
-
-          // Also prevent duplicate participants when composite values are used (e.g., TRAINER/TRAINEE)
-          const parts = trimmed.split('/').map(p => p.trim()).filter(Boolean);
-          for (const part of parts) {
-            if (seenParticipants.has(part)) {
-              return { success: false, error: `Duplicate person in ${slot}: ${part} appears in multiple columns` };
-            }
-            seenParticipants.add(part);
-          }
-        }
-      }
-    }
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: `Validation error: ${error}` };
-  }
 }
 
 /**

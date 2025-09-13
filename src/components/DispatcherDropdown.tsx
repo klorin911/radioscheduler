@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ExtendedDispatcher } from '../types';
+import { ExtendedDispatcher } from '../appTypes';
 import { Day, TimeSlot, Column } from '../constants';
-import { SHIFT_SLOTS } from '../solver/utils/shiftUtils';
+import { SHIFT_SLOTS, isEligibleOnDayForSlot } from '../solver/utils/shiftUtils';
 import DispatcherTooltip from './DispatcherTooltip';
 import '../styles/dispatcher-dropdown.css';
 
@@ -46,8 +46,13 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
       if (!dispatcher.isTrainee && !dispatcher.traineeOf && day && timeSlot && column !== 'UT') {
         const trainees = dispatchers.filter(t => (t.isTrainee === true) && t.traineeOf === dispatcher.id);
         const worksOnDay = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
-          const days = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
-          return !days || days.length === 0 || days.includes(day);
+          // If no day or timeSlot context is provided, default to available
+          if (!day || !timeSlot) {
+            const wdays = person.followTrainerSchedule && reference ? reference.workDays : person.workDays;
+            // No workDays set means available every day
+            return !wdays || wdays.length === 0 || (!!day && wdays.includes(day));
+          }
+          return isEligibleOnDayForSlot(person, day, timeSlot, reference);
         };
         const inShift = (person: ExtendedDispatcher, reference?: ExtendedDispatcher): boolean => {
           const effectiveShift = (person.followTrainerSchedule && reference && reference.shift) ? reference.shift : person.shift;
