@@ -147,7 +147,7 @@ function sanitizeLockedAssignments(
 
   const resolveParticipants = (value: string): ExtendedDispatcher[] => {
     if (!value) return [];
-    const parts = value.includes('/') ? value.split('/').map(s => s.trim()) : [value.trim()];
+    const parts = value.includes('/') ? value.split('/').map((s: string) => s.trim()) : [value.trim()];
     return parts
       .map((id) => findDispatcherByIdentifier(id, dispatchers))
       .filter((d): d is ExtendedDispatcher => !!d);

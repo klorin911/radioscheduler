@@ -106,7 +106,11 @@ export function applyShiftAwareFallback(
     columns.forEach(col => {
       const cell = fallbackSchedule[slot][col];
       if (cell) {
-        cell.split('/').map(s => s.trim()).filter(Boolean).forEach(p => used.add(p));
+        cell
+          .split('/')
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .forEach((p: string) => used.add(p));
       }
     });
 

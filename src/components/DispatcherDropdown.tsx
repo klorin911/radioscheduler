@@ -389,7 +389,7 @@ const DispatcherDropdown: React.FC<Props> = ({ value, dispatchers, onChange, cla
 
     // If the stored value is composite (e.g., "TRAINER/TRAINEE"), render as ID/ID
     if (value && value.includes('/')) {
-      const [a, b] = value.split('/').map(s => s.trim());
+      const [a, b] = value.split('/').map((s: string) => s.trim());
       const toId = (part: string) => {
         const d = dispatchers.find(x => (x.id === part || x.name === part));
         return d ? d.id : part;
