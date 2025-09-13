@@ -1,10 +1,10 @@
 import React, { useMemo, useCallback } from 'react';
 import '../styles/schedule-table.css';
 import { columns, timeSlots, Column, TimeSlot, Day, Schedule, isCellDisabled } from '../constants';
-import { ExtendedDispatcher } from '../types';
+import { ExtendedDispatcher } from '../appTypes';
 import DispatcherDropdown from './DispatcherDropdown';
 import '../styles/dispatcher-dropdown.css';
-import { isSlotInShift } from '../solver/utils/shiftUtils';
+import { isSlotInShift, isEligibleOnDayForSlot, getPreviousDay } from '../solver/utils/shiftUtils';
 
 interface Props {
   day: Day;
@@ -58,20 +58,14 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
     const trainee = participants.length > 1 ? participants[1] : undefined;
 
     const violatesDayOrShift = participants.some((person) => {
-      // Day check
-      let effectiveDays = person.workDays;
-      if (person.followTrainerSchedule && trainee && person === trainee && trainer) {
-        effectiveDays = trainer.workDays;
-      }
-      const dayOk = !effectiveDays || effectiveDays.length === 0 || effectiveDays.includes(day);
+      // Day+spillover check
+      const trainerForTrainee = person.followTrainerSchedule && trainee && person === trainee ? trainer : undefined;
+      const dayOk = isEligibleOnDayForSlot(person, day, timeSlot, trainerForTrainee);
 
-      // Shift check
-      let shiftOk = true;
-      if (person.followTrainerSchedule && trainee && person === trainee && trainer && trainer.shift) {
-        shiftOk = isSlotInShift({ ...person, shift: trainer.shift }, timeSlot);
-      } else {
-        shiftOk = isSlotInShift(person, timeSlot);
-      }
+      // Shift check (consider effective shift for follow-trainer)
+      const shiftOk = trainerForTrainee && trainerForTrainee.shift
+        ? isSlotInShift({ ...person, shift: trainerForTrainee.shift }, timeSlot)
+        : isSlotInShift(person, timeSlot);
 
       return !(dayOk && shiftOk);
     });
@@ -105,14 +99,19 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
   const scheduledDispatchersWithCounts = useMemo(() => {
     const findTrainer = (traineeOf?: string) => dispatchers.find(d => d.id === traineeOf);
     const worksOnDay = (person: ExtendedDispatcher): boolean => {
-      // If trainee follows trainer schedule, use trainer's days when available
+      // Treat someone as working on this day if their workDays include it
+      // or if they're E/F shift and worked the previous day (spillover eligibility)
+      let daysFor = person.workDays;
+      let shift = person.shift;
       if (person.followTrainerSchedule && person.isTrainee && person.traineeOf) {
         const trainer = findTrainer(person.traineeOf);
-        const daysFor = trainer?.workDays;
-        return !daysFor || daysFor.length === 0 || daysFor.includes(day);
+        daysFor = trainer?.workDays ?? daysFor;
+        shift = trainer?.shift ?? shift;
       }
-      const daysFor = person.workDays;
-      return !daysFor || daysFor.length === 0 || daysFor.includes(day);
+      if (!daysFor || daysFor.length === 0) return true;
+      if (daysFor.includes(day)) return true;
+      const prev = getPreviousDay(day);
+      return (shift === 'E' || shift === 'F') && daysFor.includes(prev);
     };
     return dispatchers
       .filter(d => worksOnDay(d))

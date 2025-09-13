@@ -1,8 +1,8 @@
 import { Day, TimeSlot, Column, columns, timeSlots, isCellDisabled } from '../../constants';
-import { ExtendedDispatcher, extractBadgeNumber } from '../../types';
-import { ScheduleDay, Assignment, AssignmentResult } from '../types';
-import { getEligibleSlots } from './shiftUtils';
-import { isDispatcherInTimeslot } from './scheduleUtils';
+import { ExtendedDispatcher, extractBadgeNumber } from '../../appTypes';
+import { ScheduleDay, Assignment, AssignmentResult } from '../solverTypes';
+import { getEligibleSlots, isEligibleOnDayForSlot, getPreviousDay } from './shiftUtils';
+import { isDispatcherInTimeslot } from './scheduleOps';
 
 // Debug logging toggle for scheduler utils
 const DEBUG = false;
@@ -48,9 +48,14 @@ export function prepareDispatchers(dispatchers: ExtendedDispatcher[], day: Day):
       log(`[Scheduler] ${day}: Skipping ${d.id} - trainee`);
       return false;
     }
-    if (d.workDays && d.workDays.length && !d.workDays.includes(day)) {
-      log(`[Scheduler] ${day}: Skipping ${d.id} - not available on ${day}`);
-      return false;
+    if (d.workDays && d.workDays.length > 0 && !d.workDays.includes(day)) {
+      // Allow E/F shift spillover eligibility if they worked the previous day
+      const prev = getPreviousDay(day);
+      const spilloverEligible = (d.shift === 'E' || d.shift === 'F') && d.workDays.includes(prev);
+      if (!spilloverEligible) {
+        log(`[Scheduler] ${day}: Skipping ${d.id} - not a work day`);
+        return false;
+      }
     }
     return true;
   });
@@ -152,6 +157,8 @@ export function assignMinimumSlot(
   // Select the emptiest valid slot, then the least-used column within that slot (excluding UT)
   let assignment: { slot: TimeSlot; col: Column } | null = null;
   for (const slot of sortedEligibleSlots) {
+    // Respect day availability (no spillover)
+    if (!isEligibleOnDayForSlot(dispatcher, day, slot)) continue;
     if (isDispatcherInTimeslot(dispatcherKey, schedule, slot)) continue;
 
     // Find candidate columns: non-UT, empty, and not disabled by business rule
@@ -198,6 +205,8 @@ export function assignPreferredSlot(
 
   const dispatcherKey = dispatcher.id;
   for (const a of preferredAssignments) {
+    // Respect day availability (no spillover)
+    if (!isEligibleOnDayForSlot(dispatcher, day, a.slot)) continue;
     // Respect business rule: skip disabled cells (e.g., MT blocked times)
     if (isCellDisabled(day, a.slot, a.col)) continue;
     // Ensure dispatcher is not already in the chosen timeslot
@@ -274,6 +283,8 @@ export function assignExtraRadioSlot(
   const sortedEligibleSlots = [...eligibleSlots].sort((a, b) => slotFillCount[a] - slotFillCount[b]);
 
   for (const slot of sortedEligibleSlots) {
+    // Respect day availability (no spillover)
+    if (!isEligibleOnDayForSlot(dispatcher, day, slot)) continue;
     if (isDispatcherInTimeslot(dispatcherKey, schedule, slot)) continue;
 
     const candidateCols = columns.filter((c) =>

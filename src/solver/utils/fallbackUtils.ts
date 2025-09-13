@@ -1,8 +1,8 @@
 import { Day, timeSlots, columns, isCellDisabled } from '../../constants';
-import { ExtendedDispatcher } from '../../types';
-import { ScheduleDay } from '../types';
-import { isDispatcherInTimeslot, normalizeScheduleDayToIds } from './scheduleUtils';
-import { SHIFT_SLOTS } from './shiftUtils';
+import { ExtendedDispatcher } from '../../appTypes';
+import { ScheduleDay } from '../solverTypes';
+import { isDispatcherInTimeslot, normalizeScheduleDayToIds } from './scheduleOps';
+import { isEligibleOnDayForSlot, isSlotInShift, getPreviousDay } from './shiftUtils';
 
 /**
  * Applies a simple round-robin fallback when no assignments were made
@@ -12,11 +12,17 @@ export function applyRoundRobinFallback(
   dispatchers: ExtendedDispatcher[],
   schedule: ScheduleDay
 ): ScheduleDay {
-  const availableDispatchers = dispatchers.filter(d => 
-    (!d.workDays || d.workDays.length === 0 || d.workDays.includes(day)) &&
-    !d.excludeFromAutoSchedule &&
-    !(d.isTrainee || d.traineeOf)
-  );
+  // Base availability: enforce work day, exclude trainees and excluded
+  const availableDispatchers = dispatchers.filter(d => {
+    if (d.excludeFromAutoSchedule) return false;
+    if (d.isTrainee || d.traineeOf) return false;
+    if (d.workDays && d.workDays.length > 0 && !d.workDays.includes(day)) {
+      const prev = getPreviousDay(day);
+      const spilloverEligible = (d.shift === 'E' || d.shift === 'F') && d.workDays.includes(prev);
+      if (!spilloverEligible) return false;
+    }
+    return true;
+  });
   
   if (availableDispatchers.length === 0) {
     console.log(`[WeekScheduler] ${day}: No available dispatchers for fallback`);
@@ -28,15 +34,27 @@ export function applyRoundRobinFallback(
   const fallbackSchedule = normalizeScheduleDayToIds(schedule, dispatchers);
   
   timeSlots.forEach((slot) => {
-    let dispatcherIndex = 0;
-    // Exclude UT and RELIEF from fallback; UT handled by weekly util and RELIEF is manual-only
+    // Track used participants in this slot to avoid duplicates
+    const used = new Set<string>();
+
+    // Build eligible list for this slot respecting shift + day
+    const eligibleForSlot = availableDispatchers.filter(d => isSlotInShift(d, slot) && isEligibleOnDayForSlot(d, day, slot));
+    if (eligibleForSlot.length === 0) return;
+
+    // Exclude UT and RELIEF; ensure target cell not disabled
     columns.filter((c) => c !== 'UT' && c !== 'RELIEF' && !isCellDisabled(day, slot, c)).forEach((col) => {
-      if (dispatcherIndex < availableDispatchers.length) {
-        const dispatcher = availableDispatchers[dispatcherIndex];
-        fallbackSchedule[slot][col] = dispatcher.id;
-        dispatcherIndex++;
-      } else {
-        fallbackSchedule[slot][col] = '';
+      // Skip if locked already
+      if (fallbackSchedule[slot][col] && fallbackSchedule[slot][col].trim().length > 0) return;
+
+      // Find next eligible dispatcher not used in this timeslot and not already scheduled elsewhere in this slot
+      const pick = eligibleForSlot.find(d => {
+        const key = d.id;
+        return !used.has(key) && !isDispatcherInTimeslot(key, fallbackSchedule, slot);
+      });
+      if (pick) {
+        const key = pick.id;
+        fallbackSchedule[slot][col] = key;
+        used.add(key);
       }
     });
   });
@@ -52,11 +70,15 @@ export function applyShiftAwareFallback(
   dispatchers: ExtendedDispatcher[],
   schedule: ScheduleDay
 ): ScheduleDay {
-  const availableDispatchers = dispatchers.filter(d => 
-    (!d.workDays || d.workDays.length === 0 || d.workDays.includes(day)) &&
-    !d.excludeFromAutoSchedule &&
-    !(d.isTrainee || d.traineeOf)
-  );
+  // Base availability: enforce work day, exclude trainees and excluded
+  const availableDispatchers = dispatchers.filter(d => {
+    if (d.excludeFromAutoSchedule) return false;
+    if (d.isTrainee || d.traineeOf) return false;
+    if (!d.workDays || d.workDays.length === 0) return true;
+    if (d.workDays.includes(day)) return true;
+    const prev = getPreviousDay(day);
+    return (d.shift === 'E' || d.shift === 'F') && d.workDays.includes(prev);
+  });
 
   if (availableDispatchers.length === 0) {
     console.log(`[WeekScheduler] ${day}: No available dispatchers for shift-aware fallback`);
@@ -71,12 +93,8 @@ export function applyShiftAwareFallback(
   let rrCursor = 0;
 
   timeSlots.forEach((slot, slotIdx) => {
-    // Build eligible list for this slot based on shift
-    const eligibleForSlot = availableDispatchers.filter(d => {
-      if (!d.shift) return true; // no shift -> eligible for all
-      const slots = SHIFT_SLOTS[d.shift] || [];
-      return slots.includes(slot);
-    });
+    // Build eligible list for this slot based on shift and day
+    const eligibleForSlot = availableDispatchers.filter(d => isSlotInShift(d, slot) && isEligibleOnDayForSlot(d, day, slot));
 
     if (eligibleForSlot.length === 0) {
       // Nothing we can do for this slot
@@ -122,28 +140,4 @@ export function applyShiftAwareFallback(
   return fallbackSchedule;
 }
 
-/**
- * Applies a weighted fallback based on dispatcher preferences and seniority
- */
-export function applyWeightedFallback(
-  day: Day,
-  dispatchers: ExtendedDispatcher[],
-  schedule: ScheduleDay
-): ScheduleDay {
-  const availableDispatchers = dispatchers.filter(d => 
-    (!d.workDays || d.workDays.length === 0 || d.workDays.includes(day)) &&
-    !d.excludeFromAutoSchedule &&
-    !(d.isTrainee || d.traineeOf)
-  );
-  
-  if (availableDispatchers.length === 0) {
-    console.log(`[WeekScheduler] ${day}: No available dispatchers for weighted fallback`);
-    return schedule;
-  }
-  
-  console.log(`[WeekScheduler] ${day}: Using weighted fallback with ${availableDispatchers.length} dispatchers`);
-  
-  // TODO: Implement weighted assignment logic based on preferences and seniority
-  // For now, fall back to round-robin
-  return applyRoundRobinFallback(day, dispatchers, schedule);
-}
+// Removed unused applyWeightedFallback

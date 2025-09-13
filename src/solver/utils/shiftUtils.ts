@@ -1,5 +1,5 @@
-import { TimeSlot, timeSlots } from '../../constants';
-import { ExtendedDispatcher } from '../../types';
+import { Day, TimeSlot, timeSlots, days } from '../../constants';
+import { ExtendedDispatcher } from '../../appTypes';
 
 /**
  * Define shift time slots for each shift letter
@@ -30,25 +30,66 @@ export function isSlotInShift(dispatcher: ExtendedDispatcher, slot: TimeSlot): b
   return shiftSlots ? shiftSlots.includes(slot) : true;
 }
 
+// Removed unused helper exports: getShiftsForSlot, isValidShift, getShiftSlots
+
 /**
- * Gets all shifts that include a specific time slot
+ * Returns the previous day in the week (Monday -> Sunday, etc.)
  */
-export function getShiftsForSlot(slot: TimeSlot): string[] {
-  return Object.entries(SHIFT_SLOTS)
-    .filter(([, slots]) => slots.includes(slot))
-    .map(([shift]) => shift);
+export function getPreviousDay(day: Day): Day {
+  const idx = days.indexOf(day);
+  const prevIdx = (idx - 1 + days.length) % days.length;
+  return days[prevIdx] as Day;
+}
+
+// Overnight spillover time slots by shift for the NEXT calendar day
+const OVERNIGHT_SLOTS_E: ReadonlyArray<TimeSlot> = ['2330-0130', '0130-0330'];
+const OVERNIGHT_SLOTS_F: ReadonlyArray<TimeSlot> = ['2330-0130', '0130-0330', '0330-0530', '0530-0730'];
+
+/**
+ * Checks if a next-day time slot counts as spillover for a given shift (E or F).
+ */
+export function isSpilloverSlotForShift(shift: string | undefined, slot: TimeSlot): boolean {
+  if (!shift) return false;
+  if (shift === 'E') return OVERNIGHT_SLOTS_E.includes(slot);
+  if (shift === 'F') return OVERNIGHT_SLOTS_F.includes(slot);
+  return false;
 }
 
 /**
- * Validates that a shift letter is valid
+ * Determines if a dispatcher is eligible to work a specific timeslot on the given day.
+ * Rules:
+ * - If no workDays are defined, they are available every day.
+ * - If the selected day is in workDays, it's valid.
+ * - If not, allow overnight spillover for E/F shifts when the previous day is in workDays
+ *   and the chosen slot is one of the spillover slots for that shift.
+ * - If followTrainerSchedule applies, trainer's days/shift are used.
  */
-export function isValidShift(shift: string): boolean {
-  return Object.keys(SHIFT_SLOTS).includes(shift);
-}
+export function isEligibleOnDayForSlot(
+  dispatcher: ExtendedDispatcher,
+  day: Day,
+  slot: TimeSlot,
+  trainer?: ExtendedDispatcher
+): boolean {
+  // Resolve effective work days and shift (trainer may override for trainees following trainer schedule)
+  let effectiveDays = dispatcher.workDays;
+  let effectiveShift = dispatcher.shift as string | undefined;
 
-/**
- * Gets the time slots for a specific shift
- */
-export function getShiftSlots(shift: string): TimeSlot[] {
-  return SHIFT_SLOTS[shift] || [];
+  if (dispatcher.followTrainerSchedule && trainer) {
+    effectiveDays = trainer.workDays ?? effectiveDays;
+    effectiveShift = trainer.shift ?? effectiveShift;
+  }
+
+  // No workDays set -> available all days
+  if (!effectiveDays || effectiveDays.length === 0) return true;
+
+  // Same calendar day is always valid
+  if (effectiveDays.includes(day)) return true;
+
+  // Allow overnight spillover for E/F shifts into the next calendar day
+  const prev = getPreviousDay(day);
+  if (effectiveShift && isSpilloverSlotForShift(effectiveShift, slot) && effectiveDays.includes(prev)) {
+    return true;
+  }
+
+  return false;
 }
