@@ -245,6 +245,8 @@ export function assignExtraRadioSlot(
     const preferredAssignments = generatePreferredAssignments(dispatcher, schedule).filter(a => a.col !== 'UT' && a.col !== 'RELIEF');
     for (const assignment of preferredAssignments) {
       if (
+        // Ensure the assignment is valid for this calendar day (handles E/F spillover rules)
+        isEligibleOnDayForSlot(dispatcher, day, assignment.slot) &&
         schedule[assignment.slot][assignment.col] === '' &&
         !isDispatcherInTimeslot(dispatcherKey, schedule, assignment.slot) &&
         !isCellDisabled(day, assignment.slot, assignment.col)
