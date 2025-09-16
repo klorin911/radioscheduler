@@ -1,4 +1,4 @@
-import { days, timeSlots, columns, Schedule, TimeSlot, Column } from './constants';
+import { days, timeSlots, columns, Schedule, TimeSlot, Column, Day } from './constants';
 import { Dispatcher } from './appTypes';
 
 export const createEmptySchedule = (): Schedule => {
@@ -71,4 +71,39 @@ export const saveDispatchers = async (dispatchers: Dispatcher[]) => {
       console.error('Renderer: fallback save to localStorage failed:', e);
     }
   }
+};
+
+// DAILY DETAIL --------------------------------------------------
+export type DailyDetailGrid = {
+  headers: string[];
+  rows: string[][]; // each row must have same length as headers
+};
+
+export type DailyDetailDoc = {
+  grid: DailyDetailGrid;
+  // Shift rosters under the grid
+  rosters: {
+    headers: string[]; // e.g., ["A SHIFT","B SHIFT","C SHIFT","E SHIFT","F SHIFT"]
+    rows: string[][];  // columns correspond to headers
+  };
+  // Right-side panels
+  stabilizer: { headers: [string, string, string]; rows: string[][] }; // [time, name1, name2]
+  relief: { headers: [string, string]; rows: string[][] };             // [time, name]
+  teletype: { headers: [string, string]; rows: string[][] };           // [time, name]
+};
+
+const detailKey = (day: Day) => `dailyDetail:${day}`;
+
+export const loadDailyDetail = (day: Day): DailyDetailDoc | DailyDetailGrid | null => {
+  try {
+    const str = localStorage.getItem(detailKey(day));
+    if (str) return JSON.parse(str) as DailyDetailDoc;
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+export const saveDailyDetail = (day: Day, doc: DailyDetailDoc) => {
+  localStorage.setItem(detailKey(day), JSON.stringify(doc));
 };

@@ -7,6 +7,7 @@ import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots, isCellDisabl
 import { ExtendedDispatcher } from './appTypes';
 import ManageDispatchers from './components/ManageDispatchers';
 import ScheduleTable from './components/ScheduleTable';
+import DailyDetailSheet, { DailyDetailHandle } from './components/DailyDetailSheet';
 import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './appStorage';
 import { generateWeeklySchedule } from './solver/weekScheduler';
 import { countSlotsPerDispatcher } from './solver/utils/scheduleOps';
@@ -30,6 +31,7 @@ function App() {
   const [selectedDay, setSelectedDay] = useState<Day>('Monday');
   const [dispatchers, setDispatchers] = useState<ExtendedDispatcher[]>([]);
   const [showDispatchersPage, setShowDispatchersPage] = useState(false);
+  const [viewMode, setViewMode] = useState<'scheduler' | 'detail'>('scheduler');
   const [solving, setSolving] = useState(false);
   const [dispatchersLoaded, setDispatchersLoaded] = useState(false);
   const [slotCounts, setSlotCounts] = useState<Record<Day, Record<string, number>>>(
@@ -37,6 +39,7 @@ function App() {
   );
   const [history, setHistory] = useState<Schedule[]>([]);
   const scheduleRef = useRef(schedule);
+  const detailRef = useRef<DailyDetailHandle | null>(null);
 
   // =============================
   // Schedule state helpers
@@ -425,48 +428,80 @@ function App() {
     <div className="app">
       <div className="app-header">
         <div className="app-title">
-          <h1>Radio Scheduler</h1>
+          <div className="mode-switch" style={{ display: 'flex', gap: 8 }}>
+            <button
+              className={viewMode === 'scheduler' ? 'btn-primary' : 'btn-ghost'}
+              onClick={() => setViewMode('scheduler')}
+            >
+              Radio Scheduler
+            </button>
+            <button
+              className={viewMode === 'detail' ? 'btn-primary' : 'btn-ghost'}
+              onClick={() => { setViewMode('detail'); setShowDispatchersPage(false); }}
+            >
+              Detail Sheet
+            </button>
+          </div>
         </div>
         <div className="header-actions">
-          {!showDispatchersPage && (
+          {viewMode === 'scheduler' ? (
             <>
+              {!showDispatchersPage && (
+                <>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => applyScheduleUpdate(() => createEmptySchedule())}
+                  >
+                    Reset Schedule
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    disabled={history.length === 0}
+                    onClick={undoLast}
+                  >
+                    Undo
+                  </button>
+                  <button
+                    className="btn-primary"
+                    disabled={solving}
+                    onClick={async () => {
+                      setSolving(true);
+                      const newSched = await generateWeeklySchedule(schedule, dispatchers);
+                      applyScheduleUpdate(() => newSched);
+                      setSolving(false);
+                    }}
+                  >
+                    {solving ? 'Generating...' : 'Auto Schedule'}
+                  </button>
+                </>
+              )}
               <button
                 className="btn-ghost"
-                onClick={() => applyScheduleUpdate(() => createEmptySchedule())}
+                onClick={() => setShowDispatchersPage((v) => !v)}
               >
-                Reset Schedule
+                {showDispatchersPage ? 'Back to Schedule' : 'Manage Dispatchers'}
               </button>
-              <button
-                className="btn-ghost"
-                disabled={history.length === 0}
-                onClick={undoLast}
-              >
-                Undo
+            </>
+          ) : (
+            <>
+              <button className="btn-ghost" onClick={() => detailRef.current?.generateFromSchedule()}>
+                Generate from Schedule
               </button>
-              <button
-                className="btn-primary"
-                disabled={solving}
-                onClick={async () => {
-                  setSolving(true);
-                  const newSched = await generateWeeklySchedule(schedule, dispatchers);
-                  applyScheduleUpdate(() => newSched);
-                  setSolving(false);
-                }}
-              >
-                {solving ? 'Generating...' : 'Auto Schedule'}
+              <button className="btn-ghost" onClick={() => detailRef.current?.exportCSV()}>
+                Export CSV
+              </button>
+              <button className="btn-ghost" onClick={() => detailRef.current?.exportPDF()}>
+                Export PDF
+              </button>
+              <button className="btn-primary" onClick={() => detailRef.current?.print()}>
+                Print
               </button>
             </>
           )}
-          <button
-            className="btn-ghost"
-            onClick={() => setShowDispatchersPage((v) => !v)}
-          >
-            {showDispatchersPage ? 'Back to Schedule' : 'Manage Dispatchers'}
-          </button>
         </div>
       </div>
 
-      {!showDispatchersPage && (
+      {(viewMode === 'scheduler' && !showDispatchersPage) || viewMode === 'detail' ? (
         <div className="day-tabs">
           {days.map((d) => (
             <button
@@ -478,20 +513,29 @@ function App() {
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {showDispatchersPage ? (
-        <ManageDispatchers
-          dispatchers={dispatchers}
-          onChange={setDispatchers}
-        />
+      {viewMode === 'scheduler' ? (
+        showDispatchersPage ? (
+          <ManageDispatchers
+            dispatchers={dispatchers}
+            onChange={setDispatchers}
+          />
+        ) : (
+          <ScheduleTable
+            day={selectedDay}
+            schedule={schedule}
+            dispatchers={dispatchers}
+            onChange={handleChange}
+            slotCounts={slotCounts[selectedDay] || {}}
+          />
+        )
       ) : (
-        <ScheduleTable
+        <DailyDetailSheet
+          ref={detailRef}
           day={selectedDay}
           schedule={schedule}
           dispatchers={dispatchers}
-          onChange={handleChange}
-          slotCounts={slotCounts[selectedDay] || {}}
         />
       )}
     </div>

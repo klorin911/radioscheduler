@@ -1,0 +1,204 @@
+
+.daily-detail {
+  /* Column sizing shared by the detail grid and roster tables */
+  --time-col: 96px;              /* mirrors scheduler column but slightly tighter */
+  --channels: 7;                 /* SW, CE, SE, NE, NW, MT, UT */
+  --channel-col: 106px;          /* condensed channel column */
+  --panel-time-col: 68px;        /* compact time column for right-side panels */
+  --gap: 10px;                   /* consistent spacing between sections */
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.daily-detail .detail-note {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.daily-detail .detail-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+.daily-detail .detail-grid {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+.daily-detail .detail-table {
+  width: auto;
+  margin: 0 auto;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  overflow: hidden;
+  color: var(--text);
+}
+
+.daily-detail .detail-table th,
+.daily-detail .detail-table td {
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.daily-detail .detail-table th {
+  background: var(--panel-bg);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.daily-detail .detail-grid-table {
+  table-layout: fixed;
+  font-size: 0.9rem;
+  width: calc(var(--time-col) + var(--channel-col) * var(--channels));
+}
+
+.daily-detail .detail-grid-table th:first-child,
+.daily-detail .detail-grid-table td:first-child {
+  width: var(--time-col);
+  white-space: nowrap;
+}
+.daily-detail .detail-grid-table th:not(:first-child),
+.daily-detail .detail-grid-table td:not(:first-child) {
+  width: var(--channel-col);
+}
+
+.daily-detail .detail-grid-table th,
+.daily-detail .detail-grid-table td {
+  padding: 5px 8px;              /* mirrors the scheduler row density */
+}
+
+.daily-detail .detail-table tbody tr:nth-child(odd) td {
+  background: rgba(59, 130, 246, 0.06);
+}
+.daily-detail .detail-table tbody tr:hover td {
+  background: rgba(59, 130, 246, 0.10);
+}
+
+.daily-detail .detail-sections {
+  width: calc(var(--time-col) + var(--channel-col) * var(--channels));
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap);
+  padding-left: var(--time-col);
+}
+
+.daily-detail .detail-rosters {
+  flex: 0 0 calc(var(--channel-col) * 5);
+  overflow: visible;
+}
+
+.daily-detail .detail-roster-table {
+  table-layout: fixed;
+  font-size: 0.88rem;
+  width: calc(var(--channel-col) * 5);
+}
+.daily-detail .detail-roster-table th,
+.daily-detail .detail-roster-table td {
+  padding: 4px 6px;
+  width: var(--channel-col);
+  white-space: nowrap;
+}
+
+.daily-detail .detail-side {
+  flex: 0 0 calc(var(--channel-col) * 2);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.daily-detail .detail-panel-table {
+  table-layout: fixed;
+  font-size: 0.88rem;
+  width: calc(var(--channel-col) * 2);
+}
+.daily-detail .detail-panel-table th,
+.daily-detail .detail-panel-table td {
+  padding: 5px 6px;
+}
+.daily-detail .detail-panel-table td:first-child {
+  width: var(--panel-time-col);
+  text-align: left;
+  padding-left: 6px;
+  white-space: nowrap;
+}
+
+.daily-detail .detail-panel-table--stabilizer td:nth-child(2),
+.daily-detail .detail-panel-table--stabilizer td:nth-child(3) {
+  width: calc((var(--channel-col) * 2 - var(--panel-time-col)) / 2);
+}
+
+.daily-detail .detail-panel-table--relief td:nth-child(2) {
+  width: calc(var(--channel-col) * 2 - var(--panel-time-col));
+}
+
+.daily-detail .detail-panel-table--teletype td:nth-child(2) {
+  width: calc(var(--channel-col) * 2 - var(--panel-time-col));
+}
+
+.daily-detail .detail-table input.detail-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  outline: none;
+  padding: 5px 6px;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: calc(var(--radius) - 8px);
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  font-size: 0.88rem;
+  text-align: left;
+}
+.daily-detail .detail-table input.detail-input.empty {
+  background-color: var(--surface);
+}
+.daily-detail .detail-table input.detail-input.filled {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
+  border-color: rgba(59, 130, 246, 0.45);
+}
+.daily-detail .detail-table input.detail-input:hover {
+  border-color: var(--border);
+}
+.daily-detail .detail-table input.detail-input:focus {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+.daily-detail .detail-table input::placeholder {
+  color: var(--muted);
+}
+
+.daily-detail .dispatcher-dropdown {
+  width: 100%;
+}
+.daily-detail .dispatcher-dropdown .dropdown-button {
+  width: 100%;
+  padding: 4px 6px;
+  min-height: 26px;
+  font-size: 0.88rem;
+}
+
+/* Disabled MT cells visually align with the scheduler */
+.daily-detail .detail-table td.disabled-mt {
+  background: rgba(148, 163, 184, 0.12);
+}
+.daily-detail .detail-table td.disabled-mt input,
+.daily-detail .detail-table td.disabled-mt .dropdown-button {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Print-friendly tweaks */
+@media print {
+  .app-header, .header-actions, .day-tabs, .detail-note { display: none !important; }
+  .daily-detail .detail-table th,
+  .daily-detail .detail-table td { border-color: #999; }
+}
