@@ -4,7 +4,7 @@ import { columns, timeSlots, Column, TimeSlot, Day, Schedule, isCellDisabled } f
 import { ExtendedDispatcher } from '../appTypes';
 import DispatcherDropdown from './DispatcherDropdown';
 import '../styles/dispatcher-dropdown.css';
-import { isSlotInShift, isEligibleOnDayForSlot, getPreviousDay } from '../solver/utils/shiftUtils';
+import { isSlotInShift, isEligibleOnDayForSlot } from '../solver/utils/shiftUtils';
 
 interface Props {
   day: Day;
@@ -112,30 +112,29 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
   };
 
   const scheduledDispatchersWithCounts = useMemo(() => {
-    const findTrainer = (traineeOf?: string) => dispatchers.find(d => d.id === traineeOf);
-    const worksOnDay = (person: ExtendedDispatcher): boolean => {
-      // Treat someone as working on this day if their workDays include it
-      // or if they're E/F shift and worked the previous day (spillover eligibility)
-      let daysFor = person.workDays;
-      let shift = person.shift;
+    const findTrainer = (traineeOf?: string) => dispatchers.find((d) => d.id === traineeOf);
+    const getEffectiveWorkDays = (person: ExtendedDispatcher): string[] | undefined => {
       if (person.followTrainerSchedule && person.isTrainee && person.traineeOf) {
         const trainer = findTrainer(person.traineeOf);
-        daysFor = trainer?.workDays ?? daysFor;
-        shift = trainer?.shift ?? shift;
+        return trainer?.workDays ?? person.workDays;
       }
-      if (!daysFor || daysFor.length === 0) return true;
-      if (daysFor.includes(day)) return true;
-      const prev = getPreviousDay(day);
-      return (shift === 'E' || shift === 'F') && daysFor.includes(prev);
+      return person.workDays;
+    };
+    const isVisibleInDailyCounts = (person: ExtendedDispatcher): boolean => {
+      if (person.excludeFromAutoSchedule) return false;
+      const effectiveWorkDays = getEffectiveWorkDays(person);
+      if (!effectiveWorkDays || effectiveWorkDays.length === 0) return true;
+      return effectiveWorkDays.includes(day);
     };
     return dispatchers
-      .filter(d => worksOnDay(d))
-      .map(d => ({ ...d, count: slotCounts[d.id] ?? 0 }))
+      .filter((d) => isVisibleInDailyCounts(d))
+      .map((d) => ({ ...d, count: slotCounts[d.id] ?? 0 }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [dispatchers, day, slotCounts]);
 
   return (
     <div className="schedule-table-wrapper">
+      <h1 className="schedule-print-title">{day} Radio Schedule</h1>
       <table className="schedule-table">
         <thead>
           <tr>
@@ -175,28 +174,45 @@ const ScheduleTable: React.FC<Props> = ({ day, schedule, dispatchers, onChange, 
         </tbody>
       </table>
       <div className="daily-counts-summary">
-        <strong>Daily Counts:</strong>
-        <div className="counts-legend">
-          <span className="legend-item"><span className="swatch zero" />0</span>
-          <span className="legend-item"><span className="swatch one" />1</span>
-          <span className="legend-item"><span className="swatch two" />2</span>
-          <span className="legend-item"><span className="swatch three-plus" />3+</span>
-        </div>
+        <strong>Daily Counts</strong>
         <div className="counts-container">
           {scheduledDispatchersWithCounts.length > 0 ? (
-            scheduledDispatchersWithCounts.map((d) => {
-              const countClass =
-                d.count === 0 ? 'count-pill--zero' :
-                d.count === 1 ? 'count-pill--one' :
-                d.count === 2 ? 'count-pill--two' : 'count-pill--three-plus';
-              return (
-                <div key={d.id} className={`count-pill ${countClass}`}>
-                  {d.name}: <strong>{d.count}</strong>
-                </div>
+            (() => {
+              const zero = scheduledDispatchersWithCounts.filter((d) => d.count === 0);
+              const one = scheduledDispatchersWithCounts.filter((d) => d.count === 1);
+              const two = scheduledDispatchersWithCounts.filter((d) => d.count === 2);
+              const threePlus = scheduledDispatchersWithCounts.filter((d) => d.count >= 3);
+
+              const groups: { label: string; dotClass: string; items: typeof zero }[] = [
+                { label: '0 slots', dotClass: 'counts-dot--zero', items: zero },
+                { label: '1 slot', dotClass: 'counts-dot--one', items: one },
+                { label: '2 slots', dotClass: 'counts-dot--two', items: two },
+                { label: '3+ slots', dotClass: 'counts-dot--three-plus', items: threePlus },
+              ];
+
+              return groups.map((g) =>
+                g.items.length === 0 ? null : (
+                  <div key={g.label} className="counts-group">
+                    <div className="counts-group-label">
+                      <span className="counts-group-heading">
+                        <span className={`counts-dot ${g.dotClass}`} />
+                        {g.label}
+                      </span>
+                      <span className="counts-group-total">{g.items.length}</span>
+                    </div>
+                    <div className="counts-group-list">
+                      {g.items.map((d) => (
+                        <span key={d.id} className="counts-name-chip">
+                          {d.name || d.id}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
               );
-            })
+            })()
           ) : (
-            <span>No assignments for this day.</span>
+            <span className="counts-group-names">No assignments for this day.</span>
           )}
         </div>
       </div>

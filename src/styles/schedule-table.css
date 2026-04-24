@@ -1,65 +1,125 @@
 .schedule-table-wrapper {
-  margin-top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+.schedule-print-title {
+  display: none;
 }
 
 .daily-counts-summary {
-  background: var(--panel-bg);
-  padding: 10px;
-  border-radius: calc(var(--radius) - 4px);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  padding: 8px 0;
 }
 
 .daily-counts-summary strong {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .counts-container {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 8px;
 }
 
-.count-pill {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.08));
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  color: var(--text);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.9em;
-  white-space: nowrap;
+.counts-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
-.count-pill strong {
+.counts-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  font-weight: 600;
   color: var(--text);
-  display: inline;
-  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.counts-group-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.counts-group-total {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.counts-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.counts-dot--zero { background: #ef4444; }
+.counts-dot--one { background: #86efac; }
+.counts-dot--two { background: #4ade80; }
+.counts-dot--three-plus { background: #16a34a; }
+
+.counts-group-names {
+  color: var(--muted);
+}
+
+.counts-group-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.counts-name-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .schedule-table {
   margin: 0 auto;
   border-collapse: collapse;
   font-size: 16px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
 .schedule-table th,
 .schedule-table td {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 6px 10px;
 }
 
 /* Disabled cell styling for business-rule-blocked cells (e.g., MT blackout) */
 .schedule-cell.disabled-cell {
-  background: rgba(148, 163, 184, 0.12); /* slate-300 at low opacity */
+  background: rgba(255, 255, 255, 0.03);
 }
 .schedule-cell.disabled-cell .dropdown-button {
-  opacity: 0.55;
+  opacity: 0.4;
   cursor: not-allowed;
   filter: grayscale(0.4);
 }
@@ -69,8 +129,9 @@
 }
 
 .schedule-table th {
-  background: var(--panel-bg);
+  background: var(--surface-2);
   color: var(--text);
+  font-weight: 600;
 }
 
 .schedule-table select {
@@ -81,14 +142,14 @@
 }
 
 .dispatcher-select-filled {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18)) !important;
-  border: 1px solid rgba(59, 130, 246, 0.45) !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
   cursor: help;
 }
 
 .dispatcher-select-filled:hover {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0.20)) !important;
-  border-color: rgba(59, 130, 246, 0.65) !important;
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
 }
 
 .dispatcher-select-empty {
@@ -101,71 +162,156 @@
   display: block;
 }
 
-/* === Daily Counts color coding === */
-/* Legend */
-.counts-legend {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin: 6px 0 10px;
-  flex-wrap: wrap;
-}
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 0.85em;
-}
-.swatch {
-  display: inline-block;
-  width: 14px;
-  height: 10px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-}
-.swatch.zero { background: #EF4444; border-color: rgba(239, 68, 68, 0.7); }
-.swatch.one { background: #86EFAC; border-color: rgba(134, 239, 172, 0.7); }
-.swatch.two { background: #22C55E; border-color: rgba(34, 197, 94, 0.7); }
-.swatch.three-plus { background: #15803D; border-color: rgba(21, 128, 61, 0.7); }
+@media print {
+  @page {
+    size: letter landscape;
+    margin: 0.35in;
+  }
 
-/* Count pill variants */
-.count-pill--zero {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.12)) !important;
-  border: 1px solid rgba(239, 68, 68, 0.55) !important;
-  color: #fff !important;
-}
-.count-pill--zero:hover {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.24), rgba(239, 68, 68, 0.16)) !important;
-  border-color: rgba(239, 68, 68, 0.75) !important;
+  :root {
+    background: #ffffff;
+    color: #111111;
+    color-scheme: light;
+  }
+
+  body,
+  #root,
+  .app {
+    background: #ffffff !important;
+    color: #111111 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .app-header,
+  .day-tabs {
+    display: none !important;
+  }
+
+  .schedule-table-wrapper {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .schedule-print-title {
+    display: block;
+    margin: 0 0 8px;
+    color: #111111;
+    font-size: 18px;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .schedule-table {
+    width: 100%;
+    table-layout: fixed;
+    border-radius: 0;
+    color: #111111;
+    font-size: 10px;
+  }
+
+  .schedule-table th,
+  .schedule-table td {
+    border: 1px solid #777777;
+    padding: 3px 4px;
+    color: #111111;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .schedule-table th {
+    background: #e9e9e9 !important;
+    color: #111111 !important;
+  }
+
+  .schedule-table th:first-child,
+  .schedule-table td:first-child {
+    width: 54px;
+  }
+
+  .schedule-table .dispatcher-dropdown,
+  .schedule-table .dispatcher-tooltip-container {
+    display: block;
+    width: 100%;
+  }
+
+  .schedule-table .dropdown-button {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent !important;
+    color: #111111 !important;
+    font-size: 10px;
+    line-height: 1.2;
+    text-align: center;
+    text-shadow: none;
+  }
+
+  .schedule-table .dropdown-arrow,
+  .schedule-table .dropdown-options,
+  .schedule-table input {
+    display: none !important;
+  }
+
+  .schedule-table .schedule-cell.disabled-cell {
+    background: #000000 !important;
+  }
+
+  .schedule-table .schedule-cell.disabled-cell .dropdown-button {
+    color: #ffffff !important;
+    opacity: 1;
+    filter: none;
+  }
+
+  .daily-counts-summary {
+    break-inside: avoid;
+    padding: 4px 0 0;
+    color: #111111;
+    font-size: 9px;
+  }
+
+  .daily-counts-summary strong,
+  .counts-group-label,
+  .counts-group-names,
+  .counts-group-total,
+  .counts-name-chip {
+    color: #111111 !important;
+  }
+
+  .counts-container {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .counts-group {
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid #cccccc;
+    background: #ffffff !important;
+    font-size: 9px;
+  }
+
+  .counts-group-label {
+    gap: 4px;
+  }
+
+  .counts-group-list {
+    gap: 2px;
+  }
+
+  .counts-name-chip {
+    padding: 0 3px;
+    border-color: #cccccc;
+    background: #ffffff !important;
+    font-size: 8px;
+  }
+
+  .counts-dot {
+    display: none;
+  }
 }
 
-.count-pill--one {
-  background: linear-gradient(180deg, rgba(134, 239, 172, 0.18), rgba(134, 239, 172, 0.12)) !important;
-  border: 1px solid rgba(134, 239, 172, 0.55) !important;
-  color: #fff !important;
-}
-.count-pill--one:hover {
-  background: linear-gradient(180deg, rgba(134, 239, 172, 0.24), rgba(134, 239, 172, 0.16)) !important;
-  border-color: rgba(134, 239, 172, 0.75) !important;
-}
-
-.count-pill--two {
-  background: linear-gradient(180deg, rgba(34, 197, 94, 0.20), rgba(34, 197, 94, 0.14)) !important;
-  border: 1px solid rgba(34, 197, 94, 0.60) !important;
-  color: #fff !important;
-}
-.count-pill--two:hover {
-  background: linear-gradient(180deg, rgba(34, 197, 94, 0.26), rgba(34, 197, 94, 0.18)) !important;
-  border-color: rgba(34, 197, 94, 0.80) !important;
-}
-
-.count-pill--three-plus {
-  background: linear-gradient(180deg, rgba(21, 128, 61, 0.20), rgba(21, 128, 61, 0.14)) !important;
-  border: 1px solid rgba(21, 128, 61, 0.60) !important;
-  color: #fff !important;
-}
-.count-pill--three-plus:hover {
-  background: linear-gradient(180deg, rgba(21, 128, 61, 0.26), rgba(21, 128, 61, 0.18)) !important;
-  border-color: rgba(21, 128, 61, 0.80) !important;
-}

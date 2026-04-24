@@ -4,9 +4,9 @@
 }
 
 .dispatcher-tooltip {
-  background: rgba(2, 6, 23, 0.92);
+  background: #1f1f1f;
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 6px);
+  border-radius: calc(var(--radius) - 4px);
   padding: 8px 12px;
   box-shadow: var(--shadow-soft);
   font-size: 12px;
@@ -14,8 +14,6 @@
   min-width: 200px;
   max-width: 300px;
   pointer-events: none;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .tooltip-header {
@@ -56,5 +54,5 @@
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
-  border-top-color: rgba(2, 6, 23, 0.92);
+  border-top-color: #1f1f1f;
 }

@@ -1,9 +1,12 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, dialog } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import type { Dispatcher } from '../src/appTypes'
+import type { Column, Day, Schedule, TimeSlot } from '../src/constants'
+import type { DailyDetailDoc } from '../src/appStorage'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -22,6 +25,250 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 let win: BrowserWindow | null
 let currentMenu: Menu | null = null
 let updateAvailable = false
+
+const workbookTemplateFileName = 'Radio Week View Example.xlsm'
+const exportDays: Day[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const exportTimeSlots: TimeSlot[] = [
+  '0330-0530',
+  '0530-0730',
+  '0730-0930',
+  '0930-1130',
+  '1130-1330',
+  '1330-1530',
+  '1530-1730',
+  '1730-1930',
+  '1930-2130',
+  '2130-2330',
+  '2330-0130',
+  '0130-0330',
+]
+const exportColumns: Column[] = ['SW', 'CE', 'SE', 'NE', 'NW', 'MT', 'UT', 'RELIEF']
+const workbookColumns: Record<Column, string> = {
+  SW: 'B',
+  CE: 'C',
+  SE: 'D',
+  NE: 'E',
+  NW: 'F',
+  MT: 'G',
+  UT: 'H',
+  RELIEF: 'I',
+}
+const dayStartRows: Record<Day, number> = {
+  Monday: 6,
+  Tuesday: 20,
+  Wednesday: 34,
+  Thursday: 48,
+  Friday: 71,
+  Saturday: 85,
+  Sunday: 99,
+}
+const detailSheetPaths: Record<Day, string> = {
+  Monday: 'xl/worksheets/sheet2.xml',
+  Tuesday: 'xl/worksheets/sheet6.xml',
+  Wednesday: 'xl/worksheets/sheet10.xml',
+  Thursday: 'xl/worksheets/sheet14.xml',
+  Friday: 'xl/worksheets/sheet18.xml',
+  Saturday: 'xl/worksheets/sheet22.xml',
+  Sunday: 'xl/worksheets/sheet26.xml',
+}
+const detailColumns: Column[] = ['SW', 'CE', 'SE', 'NE', 'NW', 'MT', 'UT']
+
+type WorkbookExportPayload = {
+  title: string
+  schedule: Schedule
+  dailyDetails?: Partial<Record<Day, DailyDetailDoc>>
+}
+
+type WorkbookExportResult = {
+  success: boolean
+  canceled?: boolean
+  filePath?: string
+  error?: string
+}
+
+function getWorkbookTemplatePath() {
+  const devPath = process.env.APP_ROOT
+    ? path.join(process.env.APP_ROOT, 'electron', 'resources', workbookTemplateFileName)
+    : ''
+  if (devPath && fs.existsSync(devPath)) return devPath
+  return path.join(process.resourcesPath, workbookTemplateFileName)
+}
+
+function escapeXmlText(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function cellXml(ref: string, existingCell: string, value: string) {
+  const styleMatch = existingCell.match(/\ss="[^"]*"/)
+  const style = styleMatch ? styleMatch[0] : ''
+  if (!value) return `<c r="${ref}"${style}/>`
+
+  const preserveSpace = /^\s|\s$/.test(value) ? ' xml:space="preserve"' : ''
+  return `<c r="${ref}"${style} t="inlineStr"><is><t${preserveSpace}>${escapeXmlText(value)}</t></is></c>`
+}
+
+function columnNumber(column: string) {
+  return column.split('').reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0)
+}
+
+function createCellInExistingRow(sheetXml: string, ref: string, value: string) {
+  const match = ref.match(/^([A-Z]+)(\d+)$/)
+  if (!match) return sheetXml
+  const [, column, row] = match
+  const rowPattern = new RegExp(`<row\\b(?=[^>]*\\br="${row}")[^>]*>[\\s\\S]*?<\\/row>`)
+  const rowXml = sheetXml.match(rowPattern)?.[0]
+  if (!rowXml) return sheetXml
+
+  const fallbackCell = rowXml.match(/<c\b[^>]*\/>|<c\b[^>]*>[\s\S]*?<\/c>/)?.[0] ?? `<c r="${ref}"/>`
+  const newCell = cellXml(ref, fallbackCell.replace(/\br="[^"]*"/, `r="${ref}"`), value)
+  const targetColumn = columnNumber(column)
+  const cells = [...rowXml.matchAll(/<c\b(?=[^>]*\br="([A-Z]+)\d+")[^>]*\/>|<c\b(?=[^>]*\br="([A-Z]+)\d+")[^>]*>[\s\S]*?<\/c>/g)]
+  const insertBefore = cells.find((cell) => columnNumber(cell[1] || cell[2]) > targetColumn)
+  const nextRowXml = insertBefore
+    ? rowXml.replace(insertBefore[0], `${newCell}${insertBefore[0]}`)
+    : rowXml.replace('</row>', `${newCell}</row>`)
+
+  return sheetXml.replace(rowPattern, nextRowXml)
+}
+
+function replaceCell(sheetXml: string, ref: string, value: string) {
+  const pattern = new RegExp(
+    `<c\\b(?=[^>]*\\br="${ref}")[^>]*\\/>|<c\\b(?=[^>]*\\br="${ref}")[^>]*>[\\s\\S]*?<\\/c>`
+  )
+  const existing = sheetXml.match(pattern)?.[0]
+  if (!existing) {
+    return createCellInExistingRow(sheetXml, ref, value)
+  }
+  return sheetXml.replace(pattern, cellXml(ref, existing, value))
+}
+
+function fillRange(
+  sheetXml: string,
+  startColumnCode: number,
+  startRow: number,
+  rowCount: number,
+  columnCount: number,
+  getValue: (rowIndex: number, columnIndex: number) => string
+) {
+  let nextXml = sheetXml
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+      const ref = `${String.fromCharCode(startColumnCode + columnIndex)}${startRow + rowIndex}`
+      nextXml = replaceCell(nextXml, ref, getValue(rowIndex, columnIndex) ?? '')
+    }
+  }
+  return nextXml
+}
+
+function scheduleDetailDoc(day: Day, schedule: Schedule): DailyDetailDoc {
+  return {
+    grid: {
+      headers: [day, ...detailColumns],
+      rows: exportTimeSlots.map((slot) => [
+        slot,
+        ...detailColumns.map((column) => schedule?.[day]?.[slot]?.[column] ?? ''),
+      ]),
+    },
+    rosters: { headers: ['A SHIFT', 'B SHIFT', 'C SHIFT', 'E SHIFT', 'F SHIFT'], rows: [] },
+    stabilizer: {
+      headers: ['STABILIZER', '', ''],
+      rows: ['0730', '0930', '1130', '1330', '1530', '1730', '1930', '2130', '2330', '0130'].map((time) => [time, '', '']),
+    },
+    relief: {
+      headers: ['RELIEF', ''],
+      rows: ['1530', '1730', '1930', '2130', '2330', '0130'].map((time) => [time, '']),
+    },
+    teletype: {
+      headers: ['TELETYPE', ''],
+      rows: ['0130-0330', '0330-0530', '0530-0730'].map((time) => [time, '']),
+    },
+  }
+}
+
+function fillDetailSheet(sheetXml: string, day: Day, detail: DailyDetailDoc) {
+  const gridHeaders = detail.grid?.headers?.length ? detail.grid.headers : [day, ...detailColumns]
+  let nextXml = fillRange(sheetXml, 65, 1, 1, 8, (_row, columnIndex) => gridHeaders[columnIndex] ?? '')
+  nextXml = fillRange(nextXml, 65, 2, 12, 8, (rowIndex, columnIndex) => {
+    if (columnIndex === 0) return detail.grid?.rows?.[rowIndex]?.[0] ?? exportTimeSlots[rowIndex] ?? ''
+    return detail.grid?.rows?.[rowIndex]?.[columnIndex] ?? ''
+  })
+
+  nextXml = fillRange(nextXml, 65, 14, 1, 5, (_row, columnIndex) => detail.rosters?.headers?.[columnIndex] ?? '')
+  nextXml = fillRange(nextXml, 65, 15, 39, 5, (rowIndex, columnIndex) => (
+    detail.rosters?.rows?.[rowIndex]?.[columnIndex] ?? ''
+  ))
+
+  nextXml = replaceCell(nextXml, 'G18', detail.stabilizer?.headers?.[0] || 'STABILIZER')
+  nextXml = replaceCell(nextXml, 'H18', '')
+  nextXml = fillRange(nextXml, 70, 19, 10, 3, (rowIndex, columnIndex) => (
+    detail.stabilizer?.rows?.[rowIndex]?.[columnIndex] ?? ''
+  ))
+
+  nextXml = replaceCell(nextXml, 'G29', detail.relief?.headers?.[0] || 'RELIEF')
+  nextXml = replaceCell(nextXml, 'H29', '')
+  nextXml = fillRange(nextXml, 71, 30, 6, 2, (rowIndex, columnIndex) => (
+    detail.relief?.rows?.[rowIndex]?.[columnIndex] ?? ''
+  ))
+
+  nextXml = replaceCell(nextXml, 'G37', detail.teletype?.headers?.[0] || 'TELETYPE')
+  nextXml = replaceCell(nextXml, 'H37', '')
+  nextXml = fillRange(nextXml, 71, 38, 3, 2, (rowIndex, columnIndex) => (
+    detail.teletype?.rows?.[rowIndex]?.[columnIndex] ?? ''
+  ))
+
+  return nextXml
+}
+
+function fillWorkbookTemplate(templatePath: string, payload: WorkbookExportPayload) {
+  const workbookBytes = fs.readFileSync(templatePath)
+  const workbook = unzipSync(new Uint8Array(workbookBytes))
+  const masterSheetPath = 'xl/worksheets/sheet1.xml'
+  const masterSheet = workbook[masterSheetPath]
+  if (!masterSheet) {
+    throw new Error(`Template is missing ${masterSheetPath}`)
+  }
+  if (!workbook['xl/vbaProject.bin']) {
+    throw new Error('Template is missing xl/vbaProject.bin')
+  }
+
+  let sheetXml = strFromU8(masterSheet)
+  sheetXml = replaceCell(sheetXml, 'D4', payload.title.trim())
+
+  exportDays.forEach((day) => {
+    const startRow = dayStartRows[day]
+    exportTimeSlots.forEach((slot, slotIndex) => {
+      const rowNumber = startRow + slotIndex
+      exportColumns.forEach((column) => {
+        const ref = `${workbookColumns[column]}${rowNumber}`
+        const value = payload.schedule?.[day]?.[slot]?.[column] ?? ''
+        sheetXml = replaceCell(sheetXml, ref, value)
+      })
+    })
+  })
+
+  workbook[masterSheetPath] = strToU8(sheetXml)
+
+  exportDays.forEach((day) => {
+    const sheetPath = detailSheetPaths[day]
+    const detailSheet = workbook[sheetPath]
+    if (!detailSheet) {
+      throw new Error(`Template is missing ${sheetPath}`)
+    }
+    const detail = payload.dailyDetails?.[day] ?? scheduleDetailDoc(day, payload.schedule)
+    workbook[sheetPath] = strToU8(fillDetailSheet(strFromU8(detailSheet), day, detail))
+  })
+
+  return zipSync(workbook, { level: 6 })
+}
+
+function safeWorkbookFileName(title: string) {
+  const normalizedTitle = title.trim() || 'Radio Schedule'
+  const cleaned = normalizedTitle.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, '-')
+  return `${cleaned || 'Radio-Schedule'}.xlsm`
+}
 
 function updateMenu() {
   createMenu()
@@ -83,17 +330,10 @@ function createMenu() {
       label: 'File',
       submenu: [
         {
-          label: 'Export Week CSV',
+          label: 'Export',
           accelerator: 'Command+E',
           click: () => {
-            win?.webContents.send('menu:export-csv')
-          }
-        },
-        {
-          label: 'Export Week PDF',
-          accelerator: 'Command+Shift+E',
-          click: () => {
-            win?.webContents.send('menu:export-pdf')
+            win?.webContents.send('menu:export-workbook')
           }
         }
       ]
@@ -218,6 +458,10 @@ function setupAutoUpdater() {
   })
 
   // Menu IPC handlers
+  ipcMain.on('menu:export-workbook', () => {
+    win?.webContents.send('menu:export-workbook')
+  })
+
   ipcMain.on('menu:export-csv', () => {
     win?.webContents.send('menu:export-csv')
   })
@@ -326,6 +570,45 @@ ipcMain.handle('save-dispatchers', async (_: unknown, dispatchers: Dispatcher[])
   } catch (error) {
     console.error('Error saving dispatchers:', error)
     return false
+  }
+})
+
+ipcMain.handle('export-week-workbook', async (_: unknown, payload: WorkbookExportPayload): Promise<WorkbookExportResult> => {
+  try {
+    if (!payload?.schedule) {
+      throw new Error('No schedule was provided for export')
+    }
+
+    const templatePath = getWorkbookTemplatePath()
+    if (!fs.existsSync(templatePath)) {
+      throw new Error(`Workbook template was not found at ${templatePath}`)
+    }
+
+    const saveDialogOptions = {
+      title: 'Export Radio Schedule',
+      defaultPath: path.join(app.getPath('documents'), safeWorkbookFileName(payload.title)),
+      filters: [
+        { name: 'Excel Macro-Enabled Workbook', extensions: ['xlsm'] },
+      ],
+    }
+    const result = win
+      ? await dialog.showSaveDialog(win, saveDialogOptions)
+      : await dialog.showSaveDialog(saveDialogOptions)
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+
+    const outputPath = result.filePath.toLowerCase().endsWith('.xlsm')
+      ? result.filePath
+      : `${result.filePath}.xlsm`
+    const exportedWorkbook = fillWorkbookTemplate(templatePath, payload)
+    fs.writeFileSync(outputPath, exportedWorkbook)
+
+    return { success: true, filePath: outputPath }
+  } catch (error) {
+    console.error('Error exporting week workbook:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })
 

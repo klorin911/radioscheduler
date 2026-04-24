@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ExtendedDispatcher } from '../appTypes';
+import {
+  DispatcherListHeader,
+  DispatcherAddForm,
+  DispatcherListItem,
+  DispatcherProfileSection,
+  DispatcherScheduleSection,
+  DispatcherPreferencesSection,
+} from './dispatchers';
 import '../styles/manage-dispatchers.css';
 
 interface Props {
@@ -7,11 +15,10 @@ interface Props {
   onChange: (list: ExtendedDispatcher[]) => void;
 }
 
-import { selectableChannels as channels, timeSlots as timeBlocks } from '../constants';
-const weekDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
-  const [expandedCard, setExpandedCard] = useState<number | null>(null);
+  const [selectedDispatcherId, setSelectedDispatcherId] = useState<string | null>(null);
   const [newShortName, setNewShortName] = useState('');
   const [newName, setNewName] = useState('');
   const [newBadge, setNewBadge] = useState('');
@@ -35,17 +42,32 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
   const filteredDispatchers = useMemo(() => {
     if (!searchTerm.trim()) return dispatchers;
     const search = searchTerm.toLowerCase();
-    const filtered = dispatchers.filter((dispatcher) => {
+    return dispatchers.filter((dispatcher) => {
       const matchesId = dispatcher.id.toLowerCase().includes(search);
       const matchesName = dispatcher.name.toLowerCase().includes(search);
       const matchesBadge = dispatcher.badgeNumber && dispatcher.badgeNumber.toString().includes(search);
       return matchesId || matchesName || matchesBadge;
     });
-    console.log(`Search: "${searchTerm}" - Found ${filtered.length} of ${dispatchers.length}`);
-    return filtered;
   }, [dispatchers, searchTerm]);
 
+  useEffect(() => {
+    if (filteredDispatchers.length === 0) {
+      setSelectedDispatcherId(null);
+      return;
+    }
+    const selectedIsVisible = filteredDispatchers.some((dispatcher) => dispatcher.id === selectedDispatcherId);
+    if (!selectedDispatcherId || !selectedIsVisible) {
+      setSelectedDispatcherId(filteredDispatchers[0].id);
+    }
+  }, [filteredDispatchers, selectedDispatcherId]);
 
+  const selectedIndex = selectedDispatcherId
+    ? dispatchers.findIndex((dispatcher) => dispatcher.id === selectedDispatcherId)
+    : -1;
+  const selectedDispatcher = selectedIndex >= 0 ? dispatchers[selectedIndex] : null;
+  const selectedTrainees = selectedDispatcher
+    ? dispatchers.filter((dispatcher) => dispatcher.isTrainee === true && dispatcher.traineeOf === selectedDispatcher.id)
+    : [];
 
   const addDispatcher = () => {
     if (!newShortName.trim() || !newName.trim()) return;
@@ -69,6 +91,8 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
         excludeFromAutoSchedule: false,
       },
     ]);
+    setSelectedDispatcherId(id);
+    setSearchTerm('');
     setNewShortName('');
     setNewName('');
     setNewBadge('');
@@ -78,12 +102,20 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
     const copy = [...dispatchers];
     copy[index][field] = value;
     onChange(copy);
+    if (field === 'id') {
+      setSelectedDispatcherId(String(value));
+    }
   };
 
   const remove = (index: number) => {
+    const removedId = dispatchers[index]?.id;
     const copy = [...dispatchers];
     copy.splice(index, 1);
     onChange(copy);
+    if (removedId === selectedDispatcherId) {
+      const nextSelection = copy[index] ?? copy[index - 1] ?? copy[0] ?? null;
+      setSelectedDispatcherId(nextSelection?.id ?? null);
+    }
   };
 
   // Rotate each dispatcher's selected work days forward by one day (Mon->Tue, ..., Sun->Mon)
@@ -97,7 +129,6 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
       const days = d.workDays || [];
       if (!Array.isArray(days) || days.length === 0) return d;
       const newDays = days.map(nextDay);
-      // Keep unique and stable order based on weekDays sequence
       const uniqueOrdered = weekDays.filter((wd) => newDays.includes(wd));
       return { ...d, workDays: uniqueOrdered } as ExtendedDispatcher;
     });
@@ -106,7 +137,7 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
 
   const toggleWorkDay = (index: number, day: string) => {
     const current = dispatchers[index].workDays || [];
-    const updated = current.includes(day) 
+    const updated = current.includes(day)
       ? current.filter(d => d !== day)
       : [...current, day];
     update(index, 'workDays', updated);
@@ -152,433 +183,139 @@ const ManageDispatchers: React.FC<Props> = ({ dispatchers, onChange }) => {
 
   return (
     <div className="manage-dispatchers-container">
-      <div className="manage-dispatchers-header">
-        <h2 className="manage-dispatchers-title">Manage Dispatchers ({filteredDispatchers.length}/{dispatchers.length})</h2>
-        <div className="header-controls">
-          <input
-            type="text"
-            placeholder="Search by ID, name, or badge number..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+      <DispatcherListHeader
+        count={filteredDispatchers.length}
+        total={dispatchers.length}
+      />
+
+      <div className="dispatchers-workspace">
+        <section className="dispatchers-list-panel" aria-label="Dispatcher list">
+          <div className="dispatcher-list-controls">
+            <input
+              type="text"
+              className="dispatcher-list-search search-input"
+              placeholder="Search dispatchers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div className="dispatcher-list-actions">
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    'Rotate all selected work days forward by one (Mon→Tue, …, Sun→Mon)?'
+                  );
+                  if (confirmed) rotateAllWorkDaysForward();
+                }}
+                type="button"
+              >
+                Rotate +1
+              </button>
+              <button
+                className="btn-ghost"
+                onClick={() => { setNewShortName(''); setNewName(''); setNewBadge(''); setSearchTerm(''); }}
+                type="button"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <DispatcherAddForm
+            newShortName={newShortName}
+            newName={newName}
+            newBadge={newBadge}
+            onShortNameChange={setNewShortName}
+            onNameChange={setNewName}
+            onBadgeChange={setNewBadge}
+            onAdd={addDispatcher}
           />
-          <button
-            onClick={() => {
-              if (confirm('Rotate all selected work days forward by one (Mon→Tue, …, Sun→Mon)?')) {
-                rotateAllWorkDaysForward();
-                // Collapse cards for a cleaner view after bulk update
-                setExpandedCard(null);
-              }
-            }}
-            className="add-dispatcher-btn"
-            title="Shifts everyone\'s selected work days forward by one day"
-          >
-            Rotate Work Days +1
-          </button>
-          <button
-            onClick={() => {
-              setNewShortName('');
-              setNewName('');
-              setNewBadge('');
-              setSearchTerm('');
-              // Collapse all cards
-              setExpandedCard(null);
-            }}
-            className="add-dispatcher-btn"
-          >
-            Clear All
-          </button>
-        </div>
-      </div>
 
-      {/* Add Dispatcher Form */}
-      <div className="add-dispatcher-form">
-        <input
-          placeholder="Short Name/ID (e.g., KLOR) - required"
-          value={newShortName}
-          onChange={(e) => setNewShortName(e.target.value)}
-          className="add-dispatcher-input"
-        />
-        <input
-          placeholder="Full Name (required)"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          className="add-dispatcher-input"
-        />
-        <input
-          placeholder="Badge # (for seniority)"
-          value={newBadge}
-          onChange={(e) => setNewBadge(e.target.value)}
-          className="add-dispatcher-input"
-        />
-        <button
-          onClick={addDispatcher}
-          disabled={!newShortName.trim() || !newName.trim()}
-          className="add-dispatcher-btn"
-        >
-          Add Dispatcher
-        </button>
-      </div>
+          <div className="dispatchers-table-header">
+            <span>Name</span>
+            <span>Badge</span>
+          </div>
 
-      {/* Dispatcher Cards */}
-      <div className="dispatchers-list" key={`list-${searchTerm}-${filteredDispatchers.length}`}>
-        {filteredDispatchers.map((d, filteredIndex) => {
-          // Find the original index in the full dispatchers array using object identity.
-          // This is robust even if multiple entries share the same `id`.
-          const originalIndex = dispatchers.indexOf(d);
-          // Determine if this dispatcher is a trainer (has at least one trainee linked)
-          const traineesOf = dispatchers.filter((p) => p.isTrainee === true && p.traineeOf === d.id);
-          const isTrainer = traineesOf.length > 0;
+          <div className="dispatchers-list">
+            {filteredDispatchers.map((d) => {
+              const originalIndex = dispatchers.indexOf(d);
 
-          // Derive displayed shift when a trainee follows their trainer's schedule
-          const trainerRecord =
-            d.isTrainee && d.followTrainerSchedule && d.traineeOf
-              ? dispatchers.find((p) => p.id === d.traineeOf)
-              : undefined;
-          const isFollowingTrainer = !!(d.isTrainee && d.followTrainerSchedule && d.traineeOf);
-          const displayedShift = isFollowingTrainer ? (trainerRecord?.shift || d.shift || 'A') : (d.shift || 'A');
+              return (
+                <DispatcherListItem
+                  key={`dispatcher-${d.id}-${originalIndex}`}
+                  dispatcher={d}
+                  isSelected={d.id === selectedDispatcherId}
+                  onSelect={() => setSelectedDispatcherId(d.id)}
+                />
+              );
+            })}
+          </div>
 
-          return (
-              <div key={`dispatcher-${originalIndex}`} className="dispatcher-card">
-            {/* Card Header */}
-            <div 
-              onClick={() => setExpandedCard(expandedCard === filteredIndex ? null : filteredIndex)}
-              className="dispatcher-card-header"
-            >
-              <div className="dispatcher-card-header-content">
-                <div className="dispatcher-id-section">
-                  <label>ID:</label>
-                  <input
-                    value={d.id}
-                    readOnly={expandedCard !== filteredIndex}
-                    onChange={(e) => {
-                      if (expandedCard === filteredIndex) {
-                        update(originalIndex, 'id', e.target.value.toUpperCase());
-                      }
-                    }}
-                    onClick={(e) => {
-                      if (expandedCard === filteredIndex) e.stopPropagation();
-                      // when collapsed, allow bubbling to expand the card
-                    }}
-                    className="dispatcher-id-input"
-                    placeholder="Short Name (e.g., KLOR)"
-                  />
-                  {isTrainer ? (
+          {dispatchers.length === 0 && (
+            <div className="dispatcher-empty-state">No dispatchers yet. Add one to start building the roster.</div>
+          )}
+          {dispatchers.length > 0 && filteredDispatchers.length === 0 && (
+            <div className="dispatcher-empty-state">No dispatchers match “{searchTerm}”.</div>
+          )}
+        </section>
+
+        <aside className="dispatcher-detail-panel" aria-label="Selected dispatcher details">
+          {selectedDispatcher && selectedIndex >= 0 ? (
+            <>
+              <div className="detail-panel-header">
+                <div>
+                  <div className="detail-panel-kicker">Selected Dispatcher</div>
+                  <h3>{selectedDispatcher.id}</h3>
+                  <p>{selectedDispatcher.name}</p>
+                </div>
+                <div className="role-badges detail-role-badges">
+                  {selectedDispatcher.isTrainee && (
+                    <span className="role-badge trainee" title="Trainee" aria-label="Trainee">
+                      T
+                    </span>
+                  )}
+                  {selectedTrainees.length > 0 && (
                     <span
-                      className="trainer-indicator"
-                      title="Trainer"
+                      className="role-badge trainer"
+                      title={`Trainer (${selectedTrainees.map((t) => t.id).join(', ')})`}
                       aria-label="Trainer"
-                      onClick={(e) => e.stopPropagation()}
                     >
                       TR
                     </span>
-                  ) : null}
-                  {isTrainer && traineesOf.length > 0 && (
-                    <>
-                      {traineesOf.map((t) => (
-                        <span
-                          key={`trainee-ref-${t.id}`}
-                          className="trainee-ref-badge"
-                          title={`Trainee: ${t.id} — ${t.name}`}
-                          aria-label={`Trainee: ${t.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          T: {t.id} — {t.name}
-                        </span>
-                      ))}
-                    </>
                   )}
-                  {d.isTrainee ? (
-                    <span
-                      className="trainee-indicator"
-                      title="Trainee"
-                      aria-label="Trainee"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      T
-                    </span>
-                  ) : null}
-                  {d.isTrainee && d.traineeOf ? (
-                    <span
-                      className="trainer-ref-badge"
-                      title={`Trainer: ${d.traineeOf}${(() => { const t = dispatchers.find(p => p.id === d.traineeOf); return t ? ` — ${t.name}` : '' })()}`}
-                      aria-label={`Trainer: ${d.traineeOf}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {(() => { const t = dispatchers.find(p => p.id === d.traineeOf); return `TR: ${d.traineeOf}${t ? ` — ${t.name}` : ''}` })()}
-                    </span>
-                  ) : null}
                 </div>
-                <div className="dispatcher-name-section">
-                  <label>Name:</label>
-                  <input
-                    value={d.name}
-                    readOnly={expandedCard !== filteredIndex}
-                    onChange={(e) => {
-                      if (expandedCard === filteredIndex) {
-                        update(originalIndex, 'name', e.target.value);
-                      }
-                    }}
-                    onClick={(e) => {
-                      if (expandedCard === filteredIndex) e.stopPropagation();
-                      // when collapsed, allow bubbling to expand the card
-                    }}
-                    className="dispatcher-name-input"
-                    placeholder="Full Name"
-                  />
-                </div>
-                <div className="dispatcher-badge-section">
-                  <label>Badge #:</label>
-                  <input
-                    placeholder="Badge # (seniority)"
-                    value={d.badgeNumber || ''}
-                    readOnly={expandedCard !== filteredIndex}
-                    onChange={(e) => {
-                      if (expandedCard !== filteredIndex) return;
-                      const value = e.target.value.trim();
-                      const numValue = value ? parseInt(value, 10) : undefined;
-                      update(originalIndex, 'badgeNumber', numValue);
-                    }}
-                    onClick={(e) => {
-                      if (expandedCard === filteredIndex) e.stopPropagation();
-                      // when collapsed, allow bubbling to expand the card
-                    }}
-                    className="dispatcher-badge-input"
-                  />
-                </div>
-                <select
-                  value={displayedShift}
-                  onChange={(e) => {
-                    if (expandedCard === filteredIndex) {
-                      update(originalIndex, 'shift', e.target.value);
-                    }
-                  }}
-                  onMouseDown={(e) => { if (expandedCard !== filteredIndex) e.preventDefault(); }}
-                  onClick={(e) => { if (expandedCard === filteredIndex) e.stopPropagation(); }}
-                  className="dispatcher-shift-select"
-                  disabled={!!(d.isTrainee && d.followTrainerSchedule)}
-                >
-                  <option value="A">Shift A (0300-1330)</option>
-                  <option value="B">Shift B (0700-1730)</option>
-                  <option value="C">Shift C (1100-2130)</option>
-                  <option value="D">Shift D (1300-2330)</option>
-                  <option value="E">Shift E (1700-0330)</option>
-                  <option value="F">Shift F (2100-0730)</option>
-                </select>
               </div>
-              <div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); remove(originalIndex); }}
-                  className="delete-btn"
-                >
-                  Delete
-                </button>
-                <span className="expand-icon">
-                  {expandedCard === filteredIndex ? '▼' : '▶'}
-                </span>
+
+              <div className="dispatcher-detail-sections">
+                <DispatcherProfileSection
+                  dispatcher={selectedDispatcher}
+                  onUpdate={(field, value) => update(selectedIndex, field, value)}
+                  onRemove={() => remove(selectedIndex)}
+                />
+                <DispatcherScheduleSection
+                  dispatcher={selectedDispatcher}
+                  dispatchers={dispatchers}
+                  onUpdate={(field, value) => update(selectedIndex, field, value)}
+                  onToggleWorkDay={(day) => toggleWorkDay(selectedIndex, day)}
+                />
+                <DispatcherPreferencesSection
+                  dispatcher={selectedDispatcher}
+                  onUpdate={(field, value) => update(selectedIndex, field, value)}
+                  onMoveChannelUp={(idx) => moveChannelUp(selectedIndex, idx)}
+                  onMoveChannelDown={(idx) => moveChannelDown(selectedIndex, idx)}
+                  onAddChannel={(ch) => addChannel(selectedIndex, ch)}
+                  onRemoveChannel={(ch) => removeChannel(selectedIndex, ch)}
+                  onAddTimeBlock={(tb) => addTimeBlock(selectedIndex, tb)}
+                  onRemoveTimeBlock={(tb) => removeTimeBlock(selectedIndex, tb)}
+                />
               </div>
+            </>
+          ) : (
+            <div className="dispatcher-empty-state detail-empty-state">
+              Select a dispatcher to edit profile, schedule, and preferences.
             </div>
-
-            {/* Expanded Content */}
-            {expandedCard === filteredIndex && (
-              <div className="dispatcher-card-expanded-content">
-                {/* Training Section */}
-                <div className="training-container">
-                  <h4 className="section-title">Training</h4>
-                  <div className="checkbox-row">
-                    <label className="custom-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={d.isTrainee || false}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          if (checked) {
-                            update(originalIndex, 'isTrainee', true);
-                          } else {
-                            // When turning off trainee status, also clear trainer linkage and follow flag
-                            const copy = [...dispatchers];
-                            copy[originalIndex].isTrainee = false;
-                            copy[originalIndex].traineeOf = undefined;
-                            copy[originalIndex].followTrainerSchedule = false;
-                            onChange(copy);
-                          }
-                        }}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="checkbox-label">Trainee</span>
-                    </label>
-                  </div>
-                  {d.isTrainee ? (
-                    <div className="trainer-controls">
-                      <div className="trainer-select-row">
-                        <label>Trainer:</label>
-                        <select
-                          value={d.traineeOf || ''}
-                          onChange={(e) => {
-                            const v = e.target.value.trim().toUpperCase();
-                            update(originalIndex, 'traineeOf', v ? v : undefined);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="trainer-select"
-                        >
-                          <option value="">-- Select Trainer --</option>
-                          {dispatchers
-                            // Exclude the current record by reference to avoid hiding other records with the same id
-                            .filter((p) => p !== d && !p.isTrainee)
-                            .sort((a, b) => a.id.localeCompare(b.id))
-                            .map((p) => (
-                              <option key={p.id} value={p.id}>{p.id} — {p.name}</option>
-                            ))}
-                        </select>
-                      </div>
-                      <div className="checkbox-row">
-                        <label className="custom-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={d.followTrainerSchedule || false}
-                            onChange={(e) => update(originalIndex, 'followTrainerSchedule', e.target.checked)}
-                          />
-                          <span className="checkmark"></span>
-                          <span className="checkbox-label">Follow trainer's days off and shift</span>
-                        </label>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-                {/* Work Days */}
-                <div className="work-days-container">
-                  <h4 className="section-title">Work Days</h4>
-                  <div className="work-days-buttons">
-                    {weekDays.map(day => (
-                      <button
-                        key={day}
-                        onClick={() => toggleWorkDay(originalIndex, day)}
-                        className={`work-day-btn ${d.workDays?.includes(day) ? 'selected' : ''}`}
-                        disabled={!!(d.isTrainee && d.followTrainerSchedule)}
-                      >
-                        {day.slice(0, 3)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preferred Channels */}
-                <div className="channels-container">
-                  <h4 className="section-title">Preferred Channels (Ranked)</h4>
-                  <div className="channels-content">
-                    <div className="channels-column">
-                      <div className="section-subtitle">Available</div>
-                      <div className="available-channels">
-                        {channels.filter(ch => !(d.preferredChannels || []).includes(ch)).map(channel => (
-                          <button
-                            key={channel}
-                            onClick={() => addChannel(originalIndex, channel)}
-                            className="add-channel-btn"
-                          >
-                            + {channel}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="channels-column">
-                      <div className="section-subtitle">Ranked Preferences</div>
-                      <div className="ranked-channels">
-                        {(d.preferredChannels || []).filter(ch => ch !== 'RELIEF').map((channel, idx) => (
-                          <div key={channel} className="ranked-channel-item">
-                            <span className="channel-rank">#{idx + 1}</span>
-                            <span className="channel-name">{channel}</span>
-                            <button onClick={() => moveChannelUp(originalIndex, idx)} disabled={idx === 0} className="channel-action-btn move-up-btn">↑</button>
-                            <button onClick={() => moveChannelDown(originalIndex, idx)} disabled={idx === (d.preferredChannels || []).length - 1} className="channel-action-btn move-down-btn">↓</button>
-                            <button onClick={() => removeChannel(originalIndex, channel)} className="channel-action-btn remove-channel-btn">×</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preferred Time Blocks */}
-                <div className="time-blocks-container">
-                  <h4 className="section-title">Preferred Time Blocks</h4>
-                  <div className="time-blocks-content">
-                    <div className="available-time-blocks">
-                      <div className="section-subtitle">Available Time Blocks</div>
-                      <div className="available-time-blocks-grid">
-                        {timeBlocks.filter(tb => !(d.preferredTimeBlocks || []).includes(tb)).map(timeBlock => (
-                          <button
-                            key={timeBlock}
-                            onClick={() => addTimeBlock(originalIndex, timeBlock)}
-                            className="add-time-block-btn"
-                          >
-                            + {timeBlock}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="selected-time-blocks">
-                      <div className="section-subtitle">Selected</div>
-                      <div className="selected-time-blocks-list">
-                        {(d.preferredTimeBlocks || []).map(timeBlock => (
-                          <div key={timeBlock} className="selected-time-block-item">
-                            <span className="time-block-text">{timeBlock}</span>
-                            <button onClick={() => removeTimeBlock(originalIndex, timeBlock)} className="remove-time-block-btn">×</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Radio & Utility Preferences */}
-                <div className="radio-util-container">
-                  <h4 className="section-title">Assignment Preferences</h4>
-
-                  {/* Minimum Radio Checkbox */}
-                  <div className="checkbox-row">
-                    <label className="custom-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={d.minimumRadioOnly || false}
-                        onChange={(e) => update(originalIndex, 'minimumRadioOnly', e.target.checked)}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="checkbox-label">Minimum Radio – Only assign me one radio slot per day</span>
-                    </label>
-                  </div>
-
-                  {/* Extra Radio removed: default is extra radio unless Minimum Radio is selected */}
-
-                  {/* Extra Utility Checkbox */}
-                  <div className="checkbox-row">
-                    <label className="custom-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={d.wantsExtraUtility || false}
-                        onChange={(e) => update(originalIndex, 'wantsExtraUtility', e.target.checked)}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="checkbox-label">Extra Utility – I’m willing to take additional UT slots</span>
-                    </label>
-                  </div>
-
-                  {/* Exclude from Auto Schedule Checkbox */}
-                  <div className="checkbox-row">
-                    <label className="custom-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={d.excludeFromAutoSchedule || false}
-                        onChange={(e) => update(originalIndex, 'excludeFromAutoSchedule', e.target.checked)}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="checkbox-label">Exclude from Auto Schedule – Do not assign me any slots</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-            </div>
-          );
-        })}
+          )}
+        </aside>
       </div>
     </div>
   );

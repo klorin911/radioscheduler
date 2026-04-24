@@ -1,55 +1,301 @@
 /* App shell */
 .app {
-  background: var(--glass-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px 18px 20px;
+  padding: 10px 0 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 /* Header */
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 4px);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  gap: 14px;
+  min-height: 48px;
+  padding: 6px 16px 10px;
 }
 
-.app-title {
+body.dispatchers-page .app-header {
+  padding-left: calc(max(0px, (100vw - 1600px) / 2) + 32px);
+  padding-right: calc(max(0px, (100vw - 1600px) / 2) + 32px);
+  min-width: 0;
+}
+
+.header-spacer {
+  flex: 1;
+  min-width: 16px;
+}
+
+/* Segmented mode switch */
+.mode-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+}
+
+.mode-switch button {
+  border: none;
+  background: transparent;
+  min-width: 92px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mode-switch button:hover {
+  color: var(--text);
+}
+
+.mode-switch button.active {
+  background: rgba(59, 130, 246, 0.22);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12);
+}
+
+/* Actions toolbar */
+.header-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  min-height: 34px;
 }
 
-/* Button variants for header */
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toolbar-group:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.toolbar-group-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.toolbar-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-toolbar button {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Button variants */
 .btn-ghost {
   background: transparent;
-  border-color: var(--border);
+  border-color: transparent;
+  color: var(--muted);
 }
 .btn-ghost:hover {
-  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, var(--primary), var(--primary-600));
-  border-color: rgba(59, 130, 246, 0.6);
+  background: var(--primary);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
 }
 .btn-primary:hover {
-  background: linear-gradient(180deg, var(--primary-600), var(--primary-700));
-  border-color: rgba(59, 130, 246, 0.8);
+  background: var(--primary-600);
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+.export-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.export-menu-chevron {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.85;
+}
+
+.export-menu-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #1f1f1f;
+  box-shadow: var(--shadow-soft);
+}
+
+.export-menu-popover button {
+  width: 100%;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.export-menu-popover button:hover,
+.export-menu-popover button:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Excel export dialog */
+.export-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.export-dialog {
+  width: min(440px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.export-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.export-dialog-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.export-dialog-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  background: transparent;
+  color: var(--muted);
+}
+
+.export-title-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-weak);
+  font-size: 0.82rem;
+}
+
+.export-title-field input {
+  width: 100%;
+  min-height: 38px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.export-dialog-error {
+  padding: 9px 10px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fecaca;
+  font-size: 0.85rem;
+}
+
+.export-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .app-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-spacer {
+    display: none;
+  }
+
+  .mode-switch,
+  .header-toolbar {
+    width: 100%;
+  }
+
+  .mode-switch button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .header-toolbar {
+    justify-content: flex-start;
+  }
+
+  .toolbar-group {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 540px) {
+  .toolbar-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .toolbar-buttons {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }

@@ -5,17 +5,17 @@
   line-height: 1.5;
   font-weight: 400;
 
-  /* Dark-only color scheme with blue police-accent */
+  /* Minimal dark gray scheme with restrained blue accents */
   color-scheme: dark;
-  --bg: #131c2c;              /* deep navy (lightened ~10%) */
-  --surface: #1b2231;         /* slate-900 (lightened ~10%) */
-  --surface-2: #192134;       /* slate-950 (lightened ~10%) */
-  --overlay: rgba(17, 24, 39, 0.63);
-  --border: #303b50;          /* muted slate border (lightened) */
-  --panel-bg: rgba(2, 6, 23, 0.32);
-  --muted: #9aa4b2;           /* slate-400 */
-  --text: #e5eefc;            /* near-white with blue tint */
-  --text-weak: #c7d2fe;       /* soft text */
+  --bg: #1a1a1a;              /* neutral near-black */
+  --surface: #212121;         /* dark gray */
+  --surface-2: #2a2a2a;       /* slightly lighter gray */
+  --overlay: rgba(0, 0, 0, 0.5);
+  --border: #2e2e2e;          /* subtle gray border */
+  --panel-bg: #212121;        /* solid panel background */
+  --muted: #888888;           /* medium gray */
+  --text: #e5e5e5;            /* soft white */
+  --text-weak: #a0a0a0;       /* secondary text */
 
   --primary: #3b82f6;         /* blue-500 */
   --primary-600: #2563eb;     /* blue-600 */
@@ -25,23 +25,24 @@
   --success: #22c55e;         /* green-500 */
 
   --radius: 10px;
-  --shadow: 0 6px 24px rgba(0,0,0,0.35);
-  --shadow-soft: 0 2px 12px rgba(0,0,0,0.3);
-  --glass-bg: linear-gradient(
-    to bottom right,
-    rgba(17, 24, 39, 0.58),
-    rgba(17, 24, 39, 0.40)
-  );
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.3);
+  --shadow-soft: 0 2px 8px rgba(0,0,0,0.25);
 
-  background: radial-gradient(1200px 700px at 10% 10%, rgba(59, 130, 246, 0.12), transparent 60%),
-              radial-gradient(1000px 600px at 90% 10%, rgba(29, 78, 216, 0.10), transparent 60%),
-              var(--bg);
+  background: var(--bg);
   color: var(--text);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 a {
@@ -57,7 +58,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
-  background: transparent; /* use :root gradient */
+  background: transparent; /* use :root background */
+  overflow-x: hidden;
 }
 
 h1 {
@@ -68,21 +70,20 @@ h1 {
 }
 
 button {
-  border-radius: calc(var(--radius) - 4px);
+  border-radius: calc(var(--radius) - 2px);
   border: 1px solid var(--border);
   padding: 8px 14px;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 500;
   font-family: inherit;
-  background: linear-gradient(180deg, #1a2942, #14233a);
+  background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
-  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: var(--shadow-soft);
+  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.2s ease;
 }
 button:hover {
-  border-color: var(--primary);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+  background: #333333;
+  border-color: #555555;
 }
 button:active {
   transform: translateY(0.5px) scale(0.995);
@@ -100,5 +101,12 @@ button:focus-visible {
   /* Allow the app to span the window while keeping comfortable gutters */
   max-width: 1600px;
   margin: 0 auto;
-  padding: 16px 20px 28px;
+  padding: 12px 16px 20px;
+}
+
+body.dispatchers-page #root {
+  max-width: none;
+  height: 100dvh;
+  overflow: hidden;
+  padding: 12px 0 20px;
 }

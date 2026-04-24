@@ -13,7 +13,6 @@ export interface DailyDetailHandle {
   generateFromSchedule: () => void;
   exportCSV: () => void;
   exportPDF: () => Promise<void>;
-  print: () => void;
 }
 
 interface Props {
@@ -119,18 +118,20 @@ const DailyDetailSheet = forwardRef<DailyDetailHandle, Props>(function DailyDeta
           }
         } as DailyDetailDoc;
       }
-      setDoc(normalizePanelTimes(d));
+      const freshFromSchedule = buildDailyDetailDoc(day, schedule, dispatchers);
+      setDoc(normalizePanelTimes({
+        ...d,
+        // The detail sheet's schedule grid and shift rosters should always mirror
+        // the current radio schedule for the selected day. Preserve the manually
+        // edited side panels, but replace schedule-derived sections.
+        grid: freshFromSchedule.grid,
+        rosters: freshFromSchedule.rosters,
+      }));
     }
     else if (isDailyDetailGrid(saved)) {
-      // Back-compat: old saved grid only
-      const grid = saved;
-      setDoc(normalizePanelTimes({
-        grid,
-        rosters: { headers: ['A SHIFT','B SHIFT','C SHIFT','E SHIFT','F SHIFT'], rows: [] },
-        stabilizer: { headers: ['STABILIZER','',''], rows: [] },
-        relief: { headers: ['RELIEF',''], rows: [] },
-        teletype: { headers: ['TELETYPE',''], rows: [] },
-      }));
+      // Back-compat: old saved grid only. The grid is schedule-derived, so rebuild
+      // it from the current schedule instead of keeping stale saved assignments.
+      setDoc(normalizePanelTimes(buildDailyDetailDoc(day, schedule, dispatchers)));
     } else {
       setDoc(normalizePanelTimes(buildDailyDetailDoc(day, schedule, dispatchers)));
     }
@@ -459,15 +460,10 @@ const DailyDetailSheet = forwardRef<DailyDetailHandle, Props>(function DailyDeta
     pdf.save(`daily-detail-${day}.pdf`);
   }, [doc, day]);
 
-  const doPrint = useCallback(() => {
-    window.print();
-  }, []);
-
   useImperativeHandle(ref, () => ({
     generateFromSchedule,
     exportCSV,
     exportPDF,
-    print: doPrint,
   }));
 
   // Memoize a function for cell class to black-out disabled MT cells in the main grid
@@ -491,7 +487,7 @@ const DailyDetailSheet = forwardRef<DailyDetailHandle, Props>(function DailyDeta
   return (
     <div className="daily-detail">
       <div className="detail-note">
-        Edits here are independent of the scheduler. Use “Generate from Schedule” to refresh.
+        Radio grid and rosters mirror the scheduler for this day. Side-panel edits are saved independently.
       </div>
       <div className="detail-layout">
         <div className="detail-grid">

@@ -8,7 +8,7 @@
   width: 100%;
   padding: 4px 8px;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, #1a2942, #14233a);
+  background: var(--surface-2);
   color: var(--text);
   font-size: 12px;
   cursor: pointer;
@@ -16,16 +16,17 @@
   justify-content: space-between;
   align-items: center;
   text-align: left;
+  border-radius: var(--radius-sm);
 }
 
 .dropdown-button.filled {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
-  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 .dropdown-button.filled:hover {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0.20));
-  border-color: rgba(59, 130, 246, 0.65);
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 .dropdown-button.empty {
@@ -35,23 +36,23 @@
 
 /* Validation states applied via parent container className */
 .dispatcher-dropdown.error .dropdown-button {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.22), rgba(239, 68, 68, 0.18)) !important; /* red */
-  border-color: rgba(239, 68, 68, 0.55) !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
   color: var(--text) !important;
 }
 .dispatcher-dropdown.error .dropdown-button:hover {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.30), rgba(239, 68, 68, 0.22)) !important;
-  border-color: rgba(239, 68, 68, 0.75) !important;
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: rgba(239, 68, 68, 0.65) !important;
 }
 
 .dispatcher-dropdown.warning .dropdown-button {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.18)) !important; /* amber */
-  border-color: rgba(245, 158, 11, 0.55) !important;
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
   color: var(--text) !important;
 }
 .dispatcher-dropdown.warning .dropdown-button:hover {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.30), rgba(245, 158, 11, 0.22)) !important;
-  border-color: rgba(245, 158, 11, 0.75) !important;
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(245, 158, 11, 0.65) !important;
 }
 
 .dropdown-arrow {
@@ -65,15 +66,15 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: rgba(2, 6, 23, 0.95);
+  background: #1f1f1f;
   border: 1px solid var(--border);
-  border-top: none;
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 3px;
   max-height: 200px;
   overflow-y: auto;
   z-index: 1000;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .dropdown-option {
@@ -86,18 +87,18 @@
 }
 
 .dropdown-option:hover {
-  background: rgba(2, 6, 23, 0.7);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Keyboard highlight state (ArrowUp/ArrowDown) */
 .dropdown-option.highlighted {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.06);
   border-left: 2px solid rgba(59, 130, 246, 0.45);
 }
 
 .dropdown-option.selected {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
-  border-left: 2px solid rgba(59, 130, 246, 0.65);
+  background: rgba(59, 130, 246, 0.12);
+  border-left: 2px solid rgba(59, 130, 246, 0.6);
 }
 
 .dropdown-option:last-child {
@@ -112,7 +113,7 @@
 }
 
 .dropdown-option.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -121,70 +122,66 @@
 }
 
 /* --- Accessibility & contrast overrides for Dispatcher Dropdown ---
-   Goal: Improve readability of dropdown text and controls while preserving dark theme.
-   - Primary off-white used: #E6EEF8 (good contrast on dark backgrounds)
-   - Button near-white used: #F0F6FB (slightly warmer/near-white for button labels)
-   - Secondary gray used: #9FB0C1 (for arrows and small/secondary text)
-   - Disabled/less-important: #95A6B6
-   - Subtle text-shadow for thin text: 0 1px 2px rgba(0,0,0,0.6)
+   Aligned with the neutral gray theme while preserving readability.
+   - Primary text: var(--text) (#e5e5e5)
+   - Secondary text: var(--muted) (#888888)
+   - Subtle text-shadow for thin text on dark surfaces.
 */
 
-/* Ensure primary dropdown text is an accessible off-white */
+/* Ensure primary dropdown text is readable */
 .dispatcher-dropdown,
 .dropdown-button,
 .dropdown-option,
 .dropdown-option span {
-  color: #E6EEF8 !important; /* off-white for better contrast on dark/blurred backgrounds */
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  color: var(--text) !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
-/* Make dropdown button labels slightly brighter to ensure contrast on tinted backgrounds */
+/* Make dropdown button labels slightly brighter for contrast on tinted backgrounds */
 .dropdown-button,
 .dropdown-button.filled,
 .dropdown-button.empty {
-  color: #F0F6FB !important; /* near-white for buttons */
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  color: #f5f5f5 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 /* Keep the arrow and tiny secondary text toned down but legible */
 .dropdown-arrow {
-  color: #9FB0C1 !important; /* medium-gray for non-primary glyphs */
+  color: var(--muted) !important;
   text-shadow: none;
 }
 
 /* Dropdown options: primary text readable, selected state preserved */
 .dropdown-option {
-  color: #E6EEF8 !important;
+  color: var(--text) !important;
   background: transparent;
 }
 
 /* Hover and selected states keep sufficient contrast while preserving visual affordance */
 .dropdown-option:hover {
-  background: rgba(255,255,255,0.03); /* subtle lift to help the off-white text stand out */
+  background: rgba(255,255,255,0.04);
 }
-/* Mirror keyboard highlight styling in accessibility section */
 .dropdown-option.highlighted {
   background: rgba(255,255,255,0.06);
   border-left: 2px solid rgba(59, 130, 246, 0.45);
 }
 .dropdown-option.selected {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.18));
-  border-left: 2px solid rgba(59, 130, 246, 0.65);
-  color: #F0F6FB !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  background: rgba(59, 130, 246, 0.12);
+  border-left: 2px solid rgba(59, 130, 246, 0.6);
+  color: #f5f5f5 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 /* Disabled options remain visibly subdued but legible */
 .dropdown-option.disabled {
-  color: #95A6B6 !important;
-  opacity: 0.95;
+  color: var(--muted) !important;
+  opacity: 0.9;
   text-shadow: none;
 }
 
-/* Slight semi-opaque overlay for options area to isolate text from very busy backgrounds */
+/* Slightly semi-opaque overlay for options area to isolate text from very busy backgrounds */
 .dropdown-options {
-  background: rgba(2, 6, 23, 0.92); /* slightly less transparent to improve text contrast */
-  backdrop-filter: blur(6px);
+  background: #1f1f1f;
 }
 
 /* End of Dispatcher Dropdown accessibility overrides */

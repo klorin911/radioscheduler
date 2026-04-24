@@ -62,6 +62,18 @@ declare global {
       getDispatchers: () => Promise<Dispatcher[]>;
       saveDispatchers: (data: Dispatcher[]) => Promise<boolean>;
     };
+    scheduleExportAPI?: {
+      exportWeekWorkbook: (payload: {
+        title: string;
+        schedule: import('./constants').Schedule;
+        dailyDetails?: Partial<Record<import('./constants').Day, import('./appStorage').DailyDetailDoc>>;
+      }) => Promise<{
+        success: boolean;
+        canceled?: boolean;
+        filePath?: string;
+        error?: string;
+      }>;
+    };
   }
 }
 

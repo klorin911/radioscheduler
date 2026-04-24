@@ -8,6 +8,8 @@ type IpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
 
 // Import types for proper typing
 import type { Dispatcher } from '../src/appTypes';
+import type { Day, Schedule } from '../src/constants';
+import type { DailyDetailDoc } from '../src/appStorage';
 
 
 
@@ -34,6 +36,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 contextBridge.exposeInMainWorld('dispatcherAPI', {
   getDispatchers: (): Promise<Dispatcher[]> => ipcRenderer.invoke('get-dispatchers'),
   saveDispatchers: (data: Dispatcher[]): Promise<boolean> => ipcRenderer.invoke('save-dispatchers', data),
+})
+
+contextBridge.exposeInMainWorld('scheduleExportAPI', {
+  exportWeekWorkbook: (payload: { title: string; schedule: Schedule; dailyDetails?: Partial<Record<Day, DailyDetailDoc>> }): Promise<{ success: boolean; canceled?: boolean; filePath?: string; error?: string }> =>
+    ipcRenderer.invoke('export-week-workbook', payload),
 })
 
 // Keep maps of wrapped listeners so we can remove the exact same fn reference later

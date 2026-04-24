@@ -1,7 +1,7 @@
 {
   "name": "electron-vite-project",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.1.7",
+    "fflate": "^0.8.2",
     "glpk.js": "^4.0.2",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
@@ -64,6 +65,10 @@
       {
         "from": "electron/resources/dispatchers.json",
         "to": "dispatchers.json"
+      },
+      {
+        "from": "electron/resources/Radio Week View Example.xlsm",
+        "to": "Radio Week View Example.xlsm"
       }
     ],
     "artifactName": "Radio-Scheduler-${version}-${os}-${arch}.${ext}",

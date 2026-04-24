@@ -2,25 +2,65 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import './styles/App.css';
 import './styles/layout.css';
 import './styles/manage-dispatchers.css';
-import { days, Day, Schedule, TimeSlot, Column, columns, timeSlots, isCellDisabled } from './constants';
+import { days, Day, Schedule, TimeSlot, Column } from './constants';
 
 import { ExtendedDispatcher } from './appTypes';
 import ManageDispatchers from './components/ManageDispatchers';
 import ScheduleTable from './components/ScheduleTable';
-import DailyDetailSheet, { DailyDetailHandle } from './components/DailyDetailSheet';
-import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule } from './appStorage';
+import DailyDetailSheet from './components/DailyDetailSheet';
+import { loadSchedule, saveSchedule, loadDispatchers, saveDispatchers, createEmptySchedule, loadDailyDetail, type DailyDetailDoc } from './appStorage';
+import { buildDailyDetailDoc } from './utils/dailyDetail';
 import { generateWeeklySchedule } from './solver/weekScheduler';
 import { countSlotsPerDispatcher } from './solver/utils/scheduleOps';
 
 const MAX_HISTORY = 50;
+type AppView = 'scheduler' | 'detail' | 'dispatchers';
 
 // =============================
 // Utilities
 // =============================
-const pad2 = (n: number) => String(n).padStart(2, '0');
-const timestampedFileName = (prefix: string, ext: 'csv' | 'pdf') => {
-  const ts = new Date();
-  return `${prefix}-${ts.getFullYear()}${pad2(ts.getMonth() + 1)}${pad2(ts.getDate())}-${pad2(ts.getHours())}${pad2(ts.getMinutes())}.${ext}`;
+const defaultWorkbookTitle = () => {
+  const now = new Date();
+  const month = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
+  return `RADIO SCHEDULE ${month} ${now.getFullYear()}`;
+};
+
+const isDailyDetailDoc = (value: unknown): value is DailyDetailDoc => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<DailyDetailDoc>;
+  return !!candidate.grid && !!candidate.rosters && !!candidate.stabilizer && !!candidate.relief && !!candidate.teletype;
+};
+
+const normalizeDailyDetailDoc = (doc: DailyDetailDoc): DailyDetailDoc => {
+  let next = doc;
+  if (next.rosters && !next.rosters.headers.includes('F SHIFT')) {
+    next = {
+      ...next,
+      rosters: {
+        headers: [...next.rosters.headers, 'F SHIFT'],
+        rows: (next.rosters.rows || []).map((row) => [...row, '']),
+      },
+    };
+  }
+  if ((next.stabilizer?.headers?.length ?? 0) < 3) {
+    next = {
+      ...next,
+      stabilizer: {
+        headers: ['STABILIZER', '', ''],
+        rows: (next.stabilizer?.rows || []).map((row) => [row[0] ?? '', row[1] ?? '', '']),
+      },
+    };
+  }
+  if ((next.teletype?.headers?.length ?? 0) < 2) {
+    next = {
+      ...next,
+      teletype: {
+        headers: ['TELETYPE', ''],
+        rows: (next.teletype?.rows || []).map((row) => [row[0] ?? '', '']),
+      },
+    };
+  }
+  return next;
 };
 
 function App() {
@@ -30,16 +70,18 @@ function App() {
   const [schedule, setSchedule] = useState<Schedule>(() => loadSchedule());
   const [selectedDay, setSelectedDay] = useState<Day>('Monday');
   const [dispatchers, setDispatchers] = useState<ExtendedDispatcher[]>([]);
-  const [showDispatchersPage, setShowDispatchersPage] = useState(false);
-  const [viewMode, setViewMode] = useState<'scheduler' | 'detail'>('scheduler');
+  const [appView, setAppView] = useState<AppView>('scheduler');
   const [solving, setSolving] = useState(false);
+  const [workbookPromptOpen, setWorkbookPromptOpen] = useState(false);
+  const [workbookTitle, setWorkbookTitle] = useState(() => defaultWorkbookTitle());
+  const [workbookExporting, setWorkbookExporting] = useState(false);
+  const [workbookExportError, setWorkbookExportError] = useState<string | null>(null);
   const [dispatchersLoaded, setDispatchersLoaded] = useState(false);
   const [slotCounts, setSlotCounts] = useState<Record<Day, Record<string, number>>>(
     () => Object.fromEntries(days.map((d) => [d, {}])) as Record<Day, Record<string, number>>
   );
   const [history, setHistory] = useState<Schedule[]>([]);
   const scheduleRef = useRef(schedule);
-  const detailRef = useRef<DailyDetailHandle | null>(null);
 
   // =============================
   // Schedule state helpers
@@ -51,168 +93,62 @@ function App() {
     });
   };
 
-  // =============================
-  // Export: CSV
-  // =============================
-  const buildCSVForWeek = useCallback((sched: Schedule): string => {
-    const csvQuote = (val: string) => '"' + (val ?? '').replace(/"/g, '""') + '"';
-    // Day-separated blocks. For each day:
-    //  - Row 1: headers with Day name in the top-left cell (e.g., [Monday, SW, CE, ...])
-    //  - Rows : first column are times, followed by assignments
-    //  - Blank line between days for a clean break
-    const lines: string[] = [];
-    days.forEach((d, idx) => {
-      if (idx > 0) lines.push(''); // separator blank line
-      // Header row with Day in A1
-      const dayHeader = [d, ...columns];
-      lines.push(dayHeader.map(csvQuote).join(','));
-      // Data rows
-      timeSlots.forEach((slot) => {
-        const row = [slot, ...columns.map((c) => sched[d][slot][c] || '')];
-        lines.push(row.map(csvQuote).join(','));
-      });
-    });
-    return lines.join('\n');
+  const handleExportWeekWorkbook = useCallback(() => {
+    setWorkbookTitle(defaultWorkbookTitle());
+    setWorkbookExportError(null);
+    setWorkbookPromptOpen(true);
   }, []);
 
-  // Removed single-day CSV export builder
+  const buildWorkbookDetailPayload = useCallback(() => {
+    return days.reduce((details, day) => {
+      const freshFromSchedule = buildDailyDetailDoc(day, scheduleRef.current, dispatchers);
+      const saved = loadDailyDetail(day);
 
-  const downloadCSV = (fileName: string, csv: string) => {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+      if (isDailyDetailDoc(saved)) {
+        details[day] = normalizeDailyDetailDoc({
+          ...saved,
+          // Keep exported detail sheets aligned with the current radio schedule.
+          // Only side-panel detail edits come from saved local detail data.
+          grid: freshFromSchedule.grid,
+          rosters: freshFromSchedule.rosters,
+        });
+        return details;
+      }
 
-  const handleExportWeek = useCallback(() => {
-    const csv = buildCSVForWeek(scheduleRef.current);
-    const file = timestampedFileName('radioschedule-week', 'csv');
-    downloadCSV(file, csv);
-  }, [buildCSVForWeek]);
+      details[day] = freshFromSchedule;
+      return details;
+    }, {} as Partial<Record<Day, DailyDetailDoc>>);
+  }, [dispatchers]);
 
-  // Removed single-day CSV export handler
+  const confirmExportWeekWorkbook = useCallback(async () => {
+    const trimmedTitle = workbookTitle.trim() || defaultWorkbookTitle();
+    if (!window.scheduleExportAPI?.exportWeekWorkbook) {
+      setWorkbookExportError('Excel export is not available in this build.');
+      return;
+    }
 
-  // =============================
-  // Export: PDF (Mon–Thu page 1; Fri–Sun page 2)
-  // =============================
-  const handleExportWeekPDF = useCallback(async () => {
-    const { default: JsPDF } = await import('jspdf');
-    const { default: autoTable } = await import('jspdf-autotable');
-    const doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
-    const pageWidth = doc.internal.pageSize.getWidth(); // ~612pt in portrait
-    const margin = 10; // Minimal margins to maximize space
-    const spacing = 20; // A bit more room between days
-
-    // Exclude RELIEF column since it's always empty
-    const pdfColumns = columns.filter(col => col !== 'RELIEF');
-
-    // Optimized column width calculation for portrait
-    const available = pageWidth - margin * 2; // ~588pt available
-    const timeCol = 60; // Narrowest practical time column
-    const channelCount = pdfColumns.length; // 7 columns (excluding RELIEF)
-    const restWidth = available - timeCol;
-    const channelCol = Math.max(60, Math.floor(restWidth / channelCount) - 1);
-    const totalWidth = timeCol + channelCol * channelCount;
-
-    const makeDayTable = (day: Day, startY: number) => {
-      // Day title centered above table
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      const title = String(day);
-      const titleWidth = doc.getTextWidth(title);
-      doc.text(title, margin + (available - titleWidth) / 2, startY);
-
-      // Create table body with current schedule data (excluding RELIEF)
-      const tableBody = timeSlots.map((slot) => [
-        slot,
-        ...pdfColumns.map((c) => scheduleRef.current[day][slot][c] || ''),
-      ]);
-
-      // Determine MT pdf column index (add 1 because 0 is Time column in the PDF)
-      const mtColIndexInPdf = pdfColumns.indexOf('MT');
-      const mtPdfColumnIndex = mtColIndexInPdf >= 0 ? mtColIndexInPdf + 1 : -1;
-
-      autoTable(doc, {
-        startY: startY + 17, // Accommodate larger title
-        margin: { left: margin, right: margin },
-        head: [['Time', ...pdfColumns]],
-        body: tableBody,
-        styles: {
-          halign: 'center',
-          valign: 'middle',
-          fontSize: 8,
-          cellPadding: 1,
-          lineWidth: 0.3,
-          lineColor: [180, 180, 180],
-          overflow: 'linebreak',
-        },
-        headStyles: {
-          halign: 'center',
-          fillColor: [235, 235, 235],
-          textColor: 20,
-          fontStyle: 'bold',
-          fontSize: 8,
-        },
-        alternateRowStyles: { fillColor: [250, 250, 250] },
-        columnStyles: Object.fromEntries(
-          [0, ...pdfColumns.map((_, i) => i + 1)].map((idx) => [
-            idx,
-            { cellWidth: idx === 0 ? timeCol : channelCol, fontSize: 8 },
-          ])
-        ) as Record<number, { cellWidth: number; fontSize: number }>,
-        tableWidth: totalWidth,
-        theme: 'grid',
-        showHead: true,
-        // Black out disabled MT cells in PDF export
-        didParseCell: (data: unknown) => {
-          type CellStyles = { fillColor?: [number, number, number]; textColor?: [number, number, number] };
-          type Parsed = {
-            cell?: { section?: string; styles: CellStyles };
-            row?: { index: number };
-            column?: { index: number };
-          };
-          const { cell, row, column } = (data as Parsed) || {};
-          // Only body cells, valid MT column present
-          if (!cell || !row || !column) return;
-          if (cell.section !== 'body') return;
-          if (mtPdfColumnIndex < 0) return;
-          if (column.index !== mtPdfColumnIndex) return;
-
-          // Row index aligns with timeSlots order since body is built from timeSlots.map
-          const slot = timeSlots[row.index];
-          if (isCellDisabled(day, slot as TimeSlot, 'MT')) {
-            // Solid black background, white text
-            cell.styles.fillColor = [0, 0, 0];
-            cell.styles.textColor = [255, 255, 255];
-          }
-        },
+    setWorkbookExporting(true);
+    setWorkbookExportError(null);
+    try {
+      const result = await window.scheduleExportAPI.exportWeekWorkbook({
+        title: trimmedTitle,
+        schedule: scheduleRef.current,
+        dailyDetails: buildWorkbookDetailPayload(),
       });
 
-      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY + 22;
-      return lastY + spacing;
-    };
+      if (result.canceled) return;
+      if (!result.success) {
+        setWorkbookExportError(`Excel export failed: ${result.error || 'Unknown error'}`);
+        return;
+      }
 
-    let y = 40; // Start with a top margin
-    // First 4 days on page 1
-    days.slice(0, 4).forEach((d) => {
-      y = makeDayTable(d, y);
-    });
-
-    // New page for remaining 3 days
-    doc.addPage();
-    y = 40; // Reset Y for new page with top margin
-    days.slice(4).forEach((d) => {
-      y = makeDayTable(d, y);
-    });
-
-    const file = timestampedFileName('radioschedule-week', 'pdf');
-    doc.save(file);
-  }, []);
+      setWorkbookPromptOpen(false);
+    } catch (error) {
+      setWorkbookExportError(`Excel export failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setWorkbookExporting(false);
+    }
+  }, [buildWorkbookDetailPayload, workbookTitle]);
 
   // =============================
   // Undo
@@ -384,23 +320,30 @@ function App() {
     }
   }, [schedule, dispatchers]);
 
+  // Toggle full-width body class on dispatchers page
+  useEffect(() => {
+    if (appView === 'dispatchers') {
+      document.body.classList.add('dispatchers-page');
+    } else {
+      document.body.classList.remove('dispatchers-page');
+    }
+    return () => {
+      document.body.classList.remove('dispatchers-page');
+    };
+  }, [appView]);
+
   // Listen for menu events from main
   useEffect(() => {
-    const onExportCSV = () => {
-      handleExportWeek();
-    };
-    const onExportPDF = () => {
-      handleExportWeekPDF();
+    const onExportWorkbook = () => {
+      void handleExportWeekWorkbook();
     };
     
-    window.ipcRenderer?.on('menu:export-csv', onExportCSV);
-    window.ipcRenderer?.on('menu:export-pdf', onExportPDF);
+    window.ipcRenderer?.on('menu:export-workbook', onExportWorkbook);
     
     return () => {
-      window.ipcRenderer?.off('menu:export-csv', onExportCSV);
-      window.ipcRenderer?.off('menu:export-pdf', onExportPDF);
+      window.ipcRenderer?.off('menu:export-workbook', onExportWorkbook);
     };
-  }, [handleExportWeek, handleExportWeekPDF]);
+  }, [handleExportWeekWorkbook]);
 
   // =============================
   // Handlers
@@ -427,42 +370,62 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <div className="app-title">
-          <div className="mode-switch" style={{ display: 'flex', gap: 8 }}>
-            <button
-              className={viewMode === 'scheduler' ? 'btn-primary' : 'btn-ghost'}
-              onClick={() => setViewMode('scheduler')}
-            >
-              Radio Scheduler
-            </button>
-            <button
-              className={viewMode === 'detail' ? 'btn-primary' : 'btn-ghost'}
-              onClick={() => { setViewMode('detail'); setShowDispatchersPage(false); }}
-            >
-              Detail Sheet
-            </button>
-          </div>
-        </div>
-        <div className="header-actions">
-          {viewMode === 'scheduler' ? (
+        <nav className="mode-switch" aria-label="Primary navigation">
+          <button
+            type="button"
+            className={appView === 'scheduler' ? 'active' : ''}
+            onClick={() => setAppView('scheduler')}
+          >
+            Scheduler
+          </button>
+          <button
+            type="button"
+            className={appView === 'detail' ? 'active' : ''}
+            onClick={() => setAppView('detail')}
+          >
+            Detail
+          </button>
+          <button
+            type="button"
+            className={appView === 'dispatchers' ? 'active' : ''}
+            onClick={() => setAppView('dispatchers')}
+          >
+            Dispatchers
+          </button>
+        </nav>
+
+        <div className="header-spacer" />
+
+        <div className="header-toolbar">
+          {appView === 'scheduler' && (
             <>
-              {!showDispatchersPage && (
-                <>
+              <div className="toolbar-group" aria-label="Editing actions">
+                <span className="toolbar-group-label">Editing</span>
+                <div className="toolbar-buttons">
                   <button
                     className="btn-ghost"
-                    onClick={() => applyScheduleUpdate(() => createEmptySchedule())}
-                  >
-                    Reset Schedule
-                  </button>
-                  <button
-                    className="btn-ghost"
+                    type="button"
                     disabled={history.length === 0}
                     onClick={undoLast}
                   >
                     Undo
                   </button>
                   <button
+                    className="btn-ghost"
+                    type="button"
+                    onClick={() => applyScheduleUpdate(() => createEmptySchedule())}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <div className="toolbar-group" aria-label="Automation actions">
+                <span className="toolbar-group-label">Automation</span>
+                <div className="toolbar-buttons">
+                  <button
                     className="btn-primary"
+                    type="button"
                     disabled={solving}
                     onClick={async () => {
                       setSolving(true);
@@ -473,35 +436,87 @@ function App() {
                   >
                     {solving ? 'Generating...' : 'Auto Schedule'}
                   </button>
-                </>
-              )}
-              <button
-                className="btn-ghost"
-                onClick={() => setShowDispatchersPage((v) => !v)}
-              >
-                {showDispatchersPage ? 'Back to Schedule' : 'Manage Dispatchers'}
-              </button>
+                </div>
+              </div>
+
+              <div className="toolbar-group" aria-label="Output actions">
+                <span className="toolbar-group-label">Output</span>
+                <div className="toolbar-buttons">
+                  <button className="btn-primary" type="button" onClick={() => void handleExportWeekWorkbook()}>
+                    Export
+                  </button>
+                </div>
+              </div>
             </>
-          ) : (
+          )}
+          {appView === 'detail' && (
             <>
-              <button className="btn-ghost" onClick={() => detailRef.current?.generateFromSchedule()}>
-                Generate from Schedule
-              </button>
-              <button className="btn-ghost" onClick={() => detailRef.current?.exportCSV()}>
-                Export CSV
-              </button>
-              <button className="btn-ghost" onClick={() => detailRef.current?.exportPDF()}>
-                Export PDF
-              </button>
-              <button className="btn-primary" onClick={() => detailRef.current?.print()}>
-                Print
-              </button>
+              <div className="toolbar-group" aria-label="Output actions">
+                <span className="toolbar-group-label">Output</span>
+                <div className="toolbar-buttons">
+                  <button className="btn-primary" type="button" onClick={() => void handleExportWeekWorkbook()}>
+                    Export
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>
       </div>
 
-      {(viewMode === 'scheduler' && !showDispatchersPage) || viewMode === 'detail' ? (
+      {workbookPromptOpen && (
+        <div className="export-dialog-backdrop" role="presentation">
+          <form
+            className="export-dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmExportWeekWorkbook();
+            }}
+          >
+            <div className="export-dialog-header">
+              <h2>Export Excel Schedule</h2>
+              <button
+                aria-label="Close"
+                className="export-dialog-close"
+                disabled={workbookExporting}
+                type="button"
+                onClick={() => setWorkbookPromptOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <label className="export-title-field">
+              <span>Workbook title</span>
+              <input
+                autoFocus
+                disabled={workbookExporting}
+                value={workbookTitle}
+                onChange={(event) => setWorkbookTitle(event.target.value)}
+              />
+            </label>
+            {workbookExportError ? (
+              <div className="export-dialog-error" role="alert">
+                {workbookExportError}
+              </div>
+            ) : null}
+            <div className="export-dialog-actions">
+              <button
+                className="btn-ghost"
+                disabled={workbookExporting}
+                type="button"
+                onClick={() => setWorkbookPromptOpen(false)}
+              >
+                Cancel
+              </button>
+              <button className="btn-primary" disabled={workbookExporting} type="submit">
+                {workbookExporting ? 'Exporting...' : 'Export'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {appView === 'scheduler' || appView === 'detail' ? (
         <div className="day-tabs">
           {days.map((d) => (
             <button
@@ -515,27 +530,28 @@ function App() {
         </div>
       ) : null}
 
-      {viewMode === 'scheduler' ? (
-        showDispatchersPage ? (
-          <ManageDispatchers
-            dispatchers={dispatchers}
-            onChange={setDispatchers}
-          />
-        ) : (
-          <ScheduleTable
-            day={selectedDay}
-            schedule={schedule}
-            dispatchers={dispatchers}
-            onChange={handleChange}
-            slotCounts={slotCounts[selectedDay] || {}}
-          />
-        )
-      ) : (
-        <DailyDetailSheet
-          ref={detailRef}
+      {appView === 'scheduler' && (
+        <ScheduleTable
           day={selectedDay}
           schedule={schedule}
           dispatchers={dispatchers}
+          onChange={handleChange}
+          slotCounts={slotCounts[selectedDay] || {}}
+        />
+      )}
+
+      {appView === 'detail' && (
+        <DailyDetailSheet
+          day={selectedDay}
+          schedule={schedule}
+          dispatchers={dispatchers}
+        />
+      )}
+
+      {appView === 'dispatchers' && (
+        <ManageDispatchers
+          dispatchers={dispatchers}
+          onChange={setDispatchers}
         />
       )}
     </div>
